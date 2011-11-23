@@ -39,20 +39,10 @@ Utilities for dealing with Signed JSON Web Tokens.
 
 """
 
-import os
-import ssl
-import time
 import json
 import struct
-import base64
-import socket
-import httplib
-import urllib2
 import hashlib
 import M2Crypto
-from urlparse import urljoin
-from fnmatch import fnmatch
-from xml.dom import minidom
 
 from vep.utils import decode_bytes
 
@@ -92,7 +82,7 @@ def load_key(algorithm, key_data):
     """Load a Key object from the given data."""
     assert algorithm.isalnum()
     try:
-        key_class = globals()[algorithm+"Key"]
+        key_class = globals()[algorithm + "Key"]
     except KeyError:
         raise ValueError("unknown signing algorithm")
     return key_class(key_data)
@@ -116,7 +106,7 @@ class RSKey(object):
 
     def __init__(self, data):
         e = int2mpint(int(data["e"]))
-        n = int2mpint(int(data["n"]), pad=self.SIZE+1)
+        n = int2mpint(int(data["n"]), pad=self.SIZE + 1)
         self.rsa = M2Crypto.RSA.new_pub_key((e, n))
 
     def verify(self, signed_data, signature):
@@ -132,13 +122,13 @@ class RSKey(object):
 class RS64Key(RSKey):
     SIZE = 64
     HASHNAME = "sha256"
-    HASHMOD = hashlib.sha256    
+    HASHMOD = hashlib.sha256
 
 
 class RS128Key(RSKey):
     SIZE = 128
     HASHNAME = "sha256"
-    HASHMOD = hashlib.sha256    
+    HASHMOD = hashlib.sha256
 
 
 #
@@ -212,6 +202,6 @@ def modinv(a, m):
     b = m
     while b != 0:
         a, (q, b) = b, divmod(a, b)
-        x, lastx = lastx - (q*x), x
-        y, lasty = lasty - (q*y), y
+        x, lastx = lastx - (q * x), x
+        y, lasty = lasty - (q * y), y
     return lastx % m

@@ -42,17 +42,11 @@ Utility functions for PyVEP.
 import os
 import ssl
 import time
-import json
-import struct
 import base64
 import socket
 import httplib
 import urllib2
-import hashlib
-import M2Crypto
-from urlparse import urljoin
 from fnmatch import fnmatch
-from xml.dom import minidom
 
 
 def decode_bytes(value):

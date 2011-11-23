@@ -39,19 +39,9 @@ Python client library for the Verified Email Protocol.
 
 """
 
-import os
-import ssl
 import time
 import json
-import struct
-import base64
-import socket
-import httplib
-import urllib2
-import hashlib
-import M2Crypto
 from urlparse import urljoin
-from fnmatch import fnmatch
 from xml.dom import minidom
 
 from vep.utils import secure_urlopen, decode_bytes
@@ -202,7 +192,8 @@ class LocalVerifier(object):
                     ok = True
                 else:
                     # Read the host meta file to find key URL.
-                    meta = self._urlread(urljoin(hostname, self.HOST_META_PATH))
+                    meta = self._urlread(urljoin(hostname,
+                                                 self.HOST_META_PATH))
                     meta = minidom.parseString(meta)
                     for link in meta.getElementsByTagName("Link"):
                         rel = link.attributes.get("rel").value.lower()
