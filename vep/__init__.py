@@ -54,6 +54,9 @@ from urlparse import urljoin
 from fnmatch import fnmatch
 from xml.dom import minidom
 
+from vep.utils import secure_urlopen, decode_bytes
+from vep.jwt import JWT
+
 
 BROWSERID_VERIFIER_URL = "https://browserid.org/verify"
 
@@ -129,7 +132,7 @@ class LocalVerifier(object):
         if urlopen is None:
             urlopen = secure_urlopen
         if trusted_secondaries is None:
-            trusted_secondaries = ("browserid.org",)
+            trusted_secondaries = ("browserid.org", "dev.diresworb.org")
         self.urlopen = urlopen
         self.trusted_secondaries = trusted_secondaries
         self.public_keys = {}
@@ -170,7 +173,8 @@ class LocalVerifier(object):
         root_issuer = certificates[0].payload["iss"]
         if root_issuer not in self.trusted_secondaries:
             if not email.endswith("@" + root_issuer):
-                raise ValueError("untrusted root issuer")
+                msg = "untrusted root issuer: %s" % (root_issuer,)
+                raise ValueError(msg)
         # Check the signature on the assertion.
         if not assertion.check_signature(cert.payload["public-key"]):
             raise ValueError("invalid signature on assertion")
@@ -191,21 +195,27 @@ class LocalVerifier(object):
             (ok, key) = self.public_keys[hostname]
         except KeyError:
             try:
-                # Read the host meta file to find key URL.
-                meta = self._urlread(urljoin(hostname, self.HOST_META_PATH))
-                meta = minidom.parseString(meta)
-                for link in meta.getElementsByTagName("Link"):
-                    rel = link.attributes.get("rel").value.lower()
-                    if rel is not None:
-                        if rel == self.HOST_META_REL_PUBKEY:
-                            pubkey_url = link.attributes["href"].value
-                            break
+                # Special case: dev server has no host-meta file.
+                if hostname == "https://dev.diresworb.org":
+                    key = self._urlread(urljoin(hostname, "/pk"))
+                    key = json.loads(key)
+                    ok = True
                 else:
-                    raise ValueError("Host has no public key")
-                # Read and load the public key.
-                key = self._urlread(urljoin(hostname, pubkey_url))
-                key = json.loads(key)
-                ok = True
+                    # Read the host meta file to find key URL.
+                    meta = self._urlread(urljoin(hostname, self.HOST_META_PATH))
+                    meta = minidom.parseString(meta)
+                    for link in meta.getElementsByTagName("Link"):
+                        rel = link.attributes.get("rel").value.lower()
+                        if rel is not None:
+                            if rel == self.HOST_META_REL_PUBKEY:
+                                pubkey_url = link.attributes["href"].value
+                                break
+                    else:
+                        raise ValueError("Host has no public key")
+                    # Read and load the public key.
+                    key = self._urlread(urljoin(hostname, pubkey_url))
+                    key = json.loads(key)
+                    ok = True
                 self.public_keys[hostname] = (True, key)
             except Exception, e:
                 ok = False
@@ -252,227 +262,3 @@ class LocalVerifier(object):
         else:
             data = resp.read(int(content_length))
         return data
-
-
-class JWT(object):
-    """Class for parsing signed JSON Web Tokens."""
-
-    def __init__(self, alg, payload, sig, sigbytes):
-        self.alg = alg
-        self.payload = payload
-        self.sig = sig
-        self.sigbytes = sigbytes
-
-    @classmethod
-    def parse(cls, jwt):
-        """Parse a JWT from a string."""
-        alg, payload, sig = jwt.split(".")
-        sigbytes = alg + "." + payload
-        alg = json.loads(decode_bytes(alg))["alg"]
-        payload = json.loads(decode_bytes(payload))
-        sig = decode_bytes(sig)
-        return cls(alg, payload, sig, sigbytes)
-
-    def check_signature(self, key):
-        """Check that the JWT was signed with the given key."""
-        if not self.alg.startswith(key["algorithm"]):
-            return False
-        if self.alg == "RS64":
-            return self._check_signature_rs64(key)
-        if self.alg == "RS128":
-            return self._check_signature_rs128(key)
-        raise ValueError("Unsupported Signature Type: %r" % (self.alg,))
-
-    def _check_signature_rs64(self, key):
-        e = int2mpint(int(key["e"]))
-        n = int2mpint(int(key["n"]), pad=65)
-        key = M2Crypto.RSA.new_pub_key((e, n))
-        digest = hashlib.sha256(self.sigbytes).digest()
-        try:
-            return key.verify(digest, self.sig, "sha256")
-        except M2Crypto.RSA.RSAError, e:
-            if "bad signature" not in str(e):
-                raise
-            return False
-
-    def _check_signature_rs128(self, key):
-        e = int2mpint(int(key["e"]))
-        n = int2mpint(int(key["n"]), pad=129)
-        key = M2Crypto.RSA.new_pub_key((e, n))
-        digest = hashlib.sha256(self.sigbytes).digest()
-        try:
-            return key.verify(digest, self.sig, "sha256")
-        except M2Crypto.RSA.RSAError, e:
-            if "bad signature" not in str(e):
-                raise
-            return False
-
-
-def int2mpint(x, pad=None):
-    """Convert integer into OpenSSL's MPINT format."""
-    # The horror...the horror...
-    bytes = []
-    while x:
-        bytes.append(chr(x % 256))
-        x = x / 256
-    if pad is not None:
-        while len(bytes) < pad:
-            bytes.append("\x00")
-    bytes.reverse()
-    return struct.pack(">I", len(bytes)) + "".join(bytes)
-
-
-def decode_bytes(value):
-    """Decode BrowserID's base64 encoding format.
-
-    BrowserID likes to strip padding characters off of base64-encoded strings,
-    meaning we can't use the stdlib routines to decode them directly.  This
-    is a simple wrapper that adds the padding back in.
-    """
-    if isinstance(value, unicode):
-        value = value.encode("ascii")
-    pad = len(value) % 4
-    if pad == 2:
-        value += "=="
-    elif pad == 3:
-        value += "="
-    elif pad != 0:
-        raise ValueError("incorrect b64 encoding")
-    return base64.urlsafe_b64decode(value)
-
-
-# When using secure_urlopen we search for the platform default ca-cert file.
-# This is done on-demand and the result cached in this global variable.
-DEFAULT_CACERT_FILE = None
-POSSIBLE_CACERT_FILES = ["/etc/ssl/certs/ca-certificates.crt",
-                         "/etc/ssl/certs/ca-bundle.crt",
-                         "/etc/ssl/ca-bundle.pem",
-                         "/etc/pki/tls/certs/ca-bundle.crt"]
-
-_OPENER_CACHE = {}
-
-
-## We're using M2Crypto anyway, should also use it for the below?
-
-def secure_urlopen(url, data=None, timeout=None, ca_certs=None):
-    """More secure replacement for urllib2.urlopen.
-
-    This function provides an alternative to urllib2.urlopen which does
-    basic validation and verification of HTTPS server certificates.
-    """
-    global DEFAULT_CACERT_FILE
-    # Try to find platform default ca-cert file if none was specified.
-    if ca_certs is None:
-        ca_certs = DEFAULT_CACERT_FILE
-        if ca_certs is None:
-            for filenm in POSSIBLE_CACERT_FILES:
-                if os.path.exists(filenm):
-                    ca_certs = DEFAULT_CACERT_FILE = filenm
-                    break
-            if ca_certs is None:
-                err = "could not locate default ca_certs file"
-                raise RuntimeError(err)
-    # Use a cached opener if possible.
-    try:
-        opener = _OPENER_CACHE[ca_certs]
-    except KeyError:
-        opener = urllib2.build_opener(ValidatingHTTPSHandler(ca_certs))
-        _OPENER_CACHE[ca_certs] = opener
-    return opener.open(url, data, timeout)
-
-
-class ValidatingHTTPSHandler(urllib2.HTTPSHandler):
-    """A urllib2 HTTPS handler that validates server certificates.
-
-    This class provides a urllib2-compatible opener that will validate
-    the HTTPS server certificate against the requested hostname before
-    proceeding with the connection.
-
-    It's mostly a wrapper around ValidatingHTTPSConnection, which is where
-    all the fun really happens.
-    """
-
-    def __init__(self, ca_certs):
-        urllib2.HTTPSHandler.__init__(self)
-        self.ca_certs = ca_certs
-
-    def https_open(self, req):
-        return self.do_open(self._get_connection, req)
-
-    def _get_connection(self, host, timeout):
-        return ValidatingHTTPSConnection(host, timeout=timeout,
-                                         ca_certs=self.ca_certs)
-
-
-class ValidatingHTTPSConnection(httplib.HTTPSConnection):
-    """HTTPSConnection that validates the server certificate.
-
-    This class adds some SSL certificate-checking to httplib.  It's not
-    robust and it's not complete, it's just enough to verify the certificate
-    of the browserid.org verifier server.  Hopefully it will also work with
-    other verifier URLs you might like to use.
-
-    The connector also restricts SSL to version 3 in order to avoid
-    downgrading the connection to an insecure older version.
-
-    It doesn't do revocation checks.  It should.  But I've no idea how.
-
-    The code uses implementations hints provided by:
-
-        http://www.heikkitoivonen.net/blog/2008/10/14/ssl-in-python-26/
-
-    """
-
-    def __init__(self, *args, **kwds):
-        self.ca_certs = kwds.pop("ca_certs", None)
-        if self.ca_certs is None:
-            raise TypeError("missing keyword argument: ca_certs")
-        httplib.HTTPSConnection.__init__(self, *args, **kwds)
-
-    def connect(self):
-        addr = (self.host, self.port)
-        sock = socket.create_connection(addr, self.timeout)
-        if self._tunnel_host:
-            self.sock = sock
-            self._tunnel()
-        self.sock = ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_SSLv3,
-                                    cert_reqs=ssl.CERT_REQUIRED,
-                                    ca_certs=self.ca_certs)
-        cert = self.sock.getpeercert()
-        self._validate_certificate(cert)
-
-    def _validate_certificate(self, cert):
-        now = time.time()
-        # Refuse to connect if there's no certificate.
-        if cert is None:
-            err = "no SSL certificate for %s" % (self.host,)
-            raise socket.error(err)
-        # Refuse to connect if the certificate has expired.
-        if "notAfter" in cert:
-            if ssl.cert_time_to_seconds(cert["notAfter"]) < now:
-                err = "expired SSL certificate for %s" % (self.host,)
-                raise socket.error(err)
-        # Refuse to connect if the certificate is missing subject data.
-        if "subject" not in cert:
-            err = "malformed SSL certificate for %s" % (self.host,)
-            raise socket.error(err)
-        # Try to match the certificate to the requested host.
-        if not self._validate_certificate_hostname(cert):
-            err = "invalid SSL certificate for %s" % (self.host,)
-            raise socket.error(err)
-
-    def _validate_certificate_hostname(self, cert):
-        for rdn in cert["subject"]:
-            for name, value in rdn:
-                if name == "commonName":
-                    if value == self.host:
-                        return True
-                    elif fnmatch(self.host, value):
-                        return True
-                    # Ugh.
-                    # It seems https://browserid.org uses the certificate for
-                    # https://www.browserid.org, but redirects us away from
-                    # that domain.  Apparently this is OK..?
-                    elif value == "www." + self.host:
-                        return True
-        return False
