@@ -35,7 +35,7 @@
 # ***** END LICENSE BLOCK *****
 """
 
-Python client library for the Verified Email Protocol.
+Python library for the Verified Email Protocol.
 
 """
 
