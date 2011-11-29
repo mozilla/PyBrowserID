@@ -55,6 +55,13 @@ from xml.dom import minidom
 from vep.utils import secure_urlopen, decode_bytes
 from vep.jwt import JWT
 
+import warnings
+warning_message = "The VEP certificate format has not been finalized and may "\
+                  "change in backwards-incompatible ways.  If you find that "\
+                  "the latest version of this module cannot verify a valid "\
+                  "VEP assertion, please contact the author."
+warnings.warn(warning_message, FutureWarning)
+
 
 BROWSERID_VERIFIER_URL = "https://browserid.org/verify"
 
