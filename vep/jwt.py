@@ -84,7 +84,7 @@ def load_key(algorithm, key_data):
     try:
         key_class = globals()[algorithm + "Key"]
     except KeyError:
-        raise ValueError("unknown signing algorithm")
+        raise ValueError("unknown signing algorithm: %s" % (algorithm,))
     return key_class(key_data)
 
 
@@ -131,6 +131,12 @@ class RS128Key(RSKey):
     HASHMOD = hashlib.sha256
 
 
+class RS256Key(RSKey):
+    SIZE = 256
+    HASHNAME = "sha256"
+    HASHMOD = hashlib.sha256
+
+
 #
 #  DSA keys, implemented by hand because I haven't figured out how to
 #  map what M2Crypto provides onto that the browserid.org server does.
@@ -165,6 +171,11 @@ class DSKey(object):
         u2 = (r * w) % q
         v = ((pow(g, u1, p) * pow(y, u2, p)) % p) % q
         return (v == r)
+
+
+class DS128Key(DSKey):
+    BITLENGTH = 128
+    HASHMOD = hashlib.sha1
 
 
 class DS256Key(DSKey):
