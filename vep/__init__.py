@@ -200,15 +200,11 @@ class LocalVerifier(object):
             (ok, key) = self.public_keys[hostname]
         except KeyError:
             try:
-                # Special case: dev server has no host-meta file.
-                if hostname == "https://dev.diresworb.org":
-                    key = self._urlread(urljoin(hostname, "/pk"))
-                    key = json.loads(key)
-                    ok = True
-                else:
-                    # Read the host meta file to find key URL.
-                    meta = self._urlread(urljoin(hostname,
-                                                 self.HOST_META_PATH))
+                # Try to read the host-meta file to find the key URL.
+                # If there's no host-meta file, just look at /pk
+                try:
+                    meta_url = urljoin(hostname, self.HOST_META_PATH)
+                    meta = self._urlread(meta_url)
                     meta = minidom.parseString(meta)
                     for link in meta.getElementsByTagName("Link"):
                         rel = link.attributes.get("rel").value.lower()
@@ -218,10 +214,17 @@ class LocalVerifier(object):
                                 break
                     else:
                         raise ValueError("Host has no public key")
-                    # Read and load the public key.
-                    key = self._urlread(urljoin(hostname, pubkey_url))
-                    key = json.loads(key)
-                    ok = True
+                except Exception, e:
+                    # We have no guarantee what sort of error will get raised
+                    # or how to find the status code from it :-(
+                    if "404" not in str(e):
+                        raise
+                    pubkey_url = urljoin(hostname, "/pk")
+                # Now read the public key from that URL.
+                # Cache it on success. TODO: should expire cache occasionally
+                key = self._urlread(urljoin(hostname, pubkey_url))
+                key = json.loads(key)
+                ok = True
                 self.public_keys[hostname] = (True, key)
             except Exception, e:
                 ok = False
