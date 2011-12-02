@@ -65,6 +65,9 @@ warnings.warn(warning_message, FutureWarning)
 
 BROWSERID_VERIFIER_URL = "https://browserid.org/verify"
 
+DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
+                               "dev.diresworb.org")
+
 
 class RemoteVerifier(object):
     """Class for remote verification of VEP identity assertions.
@@ -137,7 +140,7 @@ class LocalVerifier(object):
         if urlopen is None:
             urlopen = secure_urlopen
         if trusted_secondaries is None:
-            trusted_secondaries = ("browserid.org", "dev.diresworb.org")
+            trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES
         self.urlopen = urlopen
         self.trusted_secondaries = trusted_secondaries
         self.public_keys = {}
