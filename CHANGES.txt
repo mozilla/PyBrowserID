@@ -1,4 +1,14 @@
-0.1 - 2011-11-23
+0.1.1 - 2011-11-23
 ================
 
-Initial release.
+ * add "diresworb.org" to default list of trusted secondaries
+ * implement additional signature algorithms
+ * if "hostname/.well-known/host-meta" gives a 404, fall back to "hostname/pk"
+   to find the public key
+
+
+0.1.0 - 2011-11-23
+================
+
+ * initial release.
+
