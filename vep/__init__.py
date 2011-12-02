@@ -60,7 +60,8 @@ warning_message = "The VEP certificate format has not been finalized and may "\
                   "change in backwards-incompatible ways.  If you find that "\
                   "the latest version of this module cannot verify a valid "\
                   "VEP assertion, please contact the author."
-warnings.warn(warning_message, FutureWarning)
+def warn_about_certificate_format_changes(stacklevel=2):
+    warnings.warn(warning_message, FutureWarning, stacklevel=stacklevel)
 
 
 BROWSERID_VERIFIER_URL = "https://browserid.org/verify"
@@ -144,6 +145,9 @@ class LocalVerifier(object):
         self.urlopen = urlopen
         self.trusted_secondaries = trusted_secondaries
         self.public_keys = {}
+        # Emit a scary warning so that users will know
+        # this is all still pretty experimental.
+        warn_about_certificate_format_changes(stacklevel=3)
 
     def verify(self, assertion, audience=None, now=None):
         """Verify the given VEP assertion.
