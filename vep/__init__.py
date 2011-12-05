@@ -163,7 +163,8 @@ class LocalVerifier(object):
         value returned by this method.
 
         If the 'now' argument is given, it is used as the current time in
-        milliseconds.  This lets you verify expired assertions.
+        milliseconds.  This lets you verify expired assertions, e.g. for
+        testing purposes.
         """
         if now is None:
             now = int(time.time() * 1000)

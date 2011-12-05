@@ -80,7 +80,8 @@ class JWT(object):
 
 def load_key(algorithm, key_data):
     """Load a Key object from the given data."""
-    assert algorithm.isalnum()
+    if not algorithm.isalnum():
+        raise ValueError("unknown signing algorithm: %s" % (algorithm,))
     try:
         key_class = globals()[algorithm + "Key"]
     except KeyError:
@@ -139,7 +140,7 @@ class RS256Key(RSKey):
 
 #
 #  DSA keys, implemented by hand because I haven't figured out how to
-#  map what M2Crypto provides onto that the browserid.org server does.
+#  map what M2Crypto provides onto what the browserid.org server does.
 #
 
 class DSKey(object):
@@ -189,7 +190,7 @@ class DS256Key(DSKey):
 
 
 def int2mpint(x, pad=None):
-    """Convert integer into OpenSSL's MPINT format."""
+    """Convert a Python integer into a string in OpenSSL's MPINT format."""
     # The horror...the horror...
     bytes = []
     while x:
@@ -203,7 +204,7 @@ def int2mpint(x, pad=None):
 
 
 def modinv(a, m):
-    """Find the inverse of a modulo m."""
+    """Find the modular inverse of a, with modulus m."""
     # This is a transliteration of the algorithm as it was described
     # to me by Wikipedia, using the Extended Euclidean Algorithm.
     x = 0
