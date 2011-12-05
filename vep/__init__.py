@@ -177,17 +177,19 @@ class LocalVerifier(object):
                 raise ValueError("mismatched audience")
         if assertion.payload["exp"] < now:
             raise ValueError("expired assertion")
-        # Follow the certificate chain to get to the claiming principal.
+        # Parse out the list of certificates.
         certificates = data["certificates"]
         certificates = [JWT.parse(c) for c in certificates]
-        cert = self.verify_certificate_chain(certificates, now=now)
-        email = cert.payload["principal"]["email"]
         # Check that the root issuer is trusted.
+        # No point doing all that crypto if we're going to fail out anyway.
         root_issuer = certificates[0].payload["iss"]
         if root_issuer not in self.trusted_secondaries:
             if not email.endswith("@" + root_issuer):
                 msg = "untrusted root issuer: %s" % (root_issuer,)
                 raise ValueError(msg)
+        # Follow the certificate chain to get to the claiming principal.
+        cert = self.verify_certificate_chain(certificates, now=now)
+        email = cert.payload["principal"]["email"]
         # Check the signature on the assertion.
         if not assertion.check_signature(cert.payload["public-key"]):
             raise ValueError("invalid signature on assertion")
