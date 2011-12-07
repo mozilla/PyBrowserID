@@ -128,9 +128,12 @@ class LocalVerifier(object):
         except KeyError:
             raise ValueError("Malformed JWT")
         # Looks good!
-        return {"status": "okay",
-                "audience": assertion.payload["aud"],
-                "email": email}
+        return {
+          "status": "okay",
+          "audience": assertion.payload["aud"],
+          "email": email,
+          "issuer": root_issuer,
+        }
 
     def get_public_key(self, hostname):
         """Get the VEP public key for the given hostname.
