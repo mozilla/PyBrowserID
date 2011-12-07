@@ -1,4 +1,4 @@
-0.2.0 - ????-??-??
+0.2.0 - 2011-12-07
 ==================
 
  * do more validation of the assertion before checking the certificates,
