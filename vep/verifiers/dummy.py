@@ -1,0 +1,161 @@
+# ***** BEGIN LICENSE BLOCK *****
+# Version: MPL 1.1/GPL 2.0/LGPL 2.1
+#
+# The contents of this file are subject to the Mozilla Public License Version
+# 1.1 (the "License"); you may not use this file except in compliance with
+# the License. You may obtain a copy of the License at
+# http://www.mozilla.org/MPL/
+#
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+# The Original Code is PyVEP
+#
+# The Initial Developer of the Original Code is the Mozilla Foundation.
+# Portions created by the Initial Developer are Copyright (C) 2011
+# the Initial Developer. All Rights Reserved.
+#
+# Contributor(s):
+#   Ryan Kelly (rkelly@mozilla.com)
+#
+# Alternatively, the contents of this file may be used under the terms of
+# either the GNU General Public License Version 2 or later (the "GPL"), or
+# the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+# in which case the provisions of the GPL or the LGPL are applicable instead
+# of those above. If you wish to allow use of your version of this file only
+# under the terms of either the GPL or the LGPL, and not to allow others to
+# use your version of this file under the terms of the MPL, indicate your
+# decision by deleting the provisions above and replace them with the notice
+# and other provisions required by the GPL or the LGPL. If you do not delete
+# the provisions above, a recipient may use your version of this file under
+# the terms of any one of the MPL, the GPL or the LGPL.
+#
+# ***** END LICENSE BLOCK *****
+
+import time
+import json
+import hashlib
+import urlparse
+
+from vep.verifiers.local import LocalVerifier
+from vep.utils import encode_bytes
+from vep.jwt import JWT, DS128Key
+
+
+# These are values used to generate dummy DSA keys.
+# I took them directly from the javacript jwcrypto source code, which claims:
+#    """
+#    the following are based on the first FIPS186-3 test vectors for 1024/160
+#    SHA-256 under the category A.2.3 Verifiable Canonical Generation of the
+#    Generator g
+#    """
+DUMMY_Q = long("e21e04f911d1ed7991008ecaab3bf775984309c3", 16)
+
+DUMMY_P = long("""
+  ff600483db6abfc5b45eab78594b3533d550d9f1bf2a992a7a8daa6dc34f8045ad4e6e0c429
+  d334eeeaaefd7e23d4810be00e4cc1492cba325ba81ff2d5a5b305a8d17eb3bf4a06a349d39
+  2e00d329744a5179380344e82a18c47933438f891e22aeef812d69c8f75e326cb70ea000c3f
+  776dfdbd604638c2ef717fc26d02e17
+""".replace(" ", "").replace("\n", "").strip(), 16)
+
+DUMMY_G = long("""
+  c52a4a0ff3b7e61fdf1867ce84138369a6154f4afa92966e3c827e25cfa6cf508b90e5de419
+  e1337e07a2e9e2a3cd5dea704d175f8ebf6af397d69e110b96afb17c7a03259329e4829b0d0
+  3bbc7896b15b4ade53e130858cc34d96269aa89041f409136c7242a38895c9d5bccad4f389a
+  f1d7a4bd1398bd072dffa896233397a
+""".replace(" ", "").replace("\n", "").strip(), 16)
+
+
+class DummyVerifier(LocalVerifier):
+    """Class for generating and verifying dummy VEP identity assertions.
+
+    This class is a drop-in replacement for LocalVerifier that only accepts
+    dummy data.  It uses fake public keys so that all crypto operations can
+    proceed just like they would using LocalVerifier, but operating only on
+    locally-generated dummy data.
+    """
+
+    def fetch_public_key(self, hostname):
+        """Fetch the VEP public key for the given hostname.
+
+        Actually, this implementation generates the key locally based on
+        a hash of the hostname.  This lets us exercise all the crypto code
+        while using predictable local values.
+        """
+        return self._get_keypair(hostname)[0]
+
+    @classmethod
+    def make_assertion(cls, email, audience, issuer=None, exp=None,
+                       assertion_sig=None, certificate_sig=None):
+        """Generate a new dummy assertion for the given email address.
+
+        This method lets you generate VEP assertions using dummy private keys.
+        Called with just an email and audience it will generate an assertion
+        from browserid.org.
+
+        By specifying the "exp", "assertion_sig" or "certificate_sig" arguments
+        it is possible generate invalid assertions for testing purposes.
+        """
+        if issuer is None:
+            issuer = "browserid.org"
+        if exp is None:
+            exp = int((time.time() + 60) * 1000)
+        # Get private key for the email address itself.
+        email_pub, email_priv = cls._get_keypair(email)
+        # Get private key for the hostname so we can sign it.
+        iss_pub, iss_priv = cls._get_keypair(issuer)
+        # Generate the assertion, signed with email's public key.
+        assertion = {
+          "exp": exp,
+          "aud": audience,
+        }
+        assertion = JWT.generate(assertion, email_priv)
+        if assertion_sig is not None:
+            assertion = ".".join(assertion.split(".")[:-1] +
+                                 [encode_bytes(assertion_sig)])
+        # Generate the certificate signing the email's public key
+        # with the issuer's public key.
+        certificate = {
+          "iss": issuer,
+          "exp": exp,
+          "principal": {"email": email},
+          "public-key": email_pub,
+        }
+        certificate = JWT.generate(certificate, iss_priv)
+        if certificate_sig is not None:
+            certificate = ".".join(certificate.split(".")[:-1] +
+                                   [encode_bytes(certificate_sig)])
+        # Combine them into a VEP bundled assertion.
+        data = {
+          "certificates": [certificate],
+          "assertion": assertion,
+        }
+        return encode_bytes(json.dumps(data))
+
+
+    @classmethod
+    def _get_keypair(cls, hostname):
+        """Generate a dummy keypair for the given hostname."""
+        q = DUMMY_Q
+        p = DUMMY_P
+        g = DUMMY_G
+        # It's unlikely, but we must be absolutely sure x != 0.
+        # Loop to ensure it.
+        x = 0
+        while x == 0:
+            hostname += ";"
+            x = int(hashlib.sha1(hostname).hexdigest(), 16)
+        y = pow(g, x, p)
+        data = {
+          "algorithm": "DS",
+          "p": hex(p),
+          "q": hex(q),
+          "g": hex(g),
+          "y": hex(y),
+          "x": hex(x),
+        }
+        privkey = DS128Key(data)
+        del data["x"]
+        return data, privkey

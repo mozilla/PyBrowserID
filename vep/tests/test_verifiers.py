@@ -34,9 +34,11 @@
 #
 # ***** END LICENSE BLOCK *****
 
+import time
 import unittest
+import warnings
 
-from vep import RemoteVerifier, LocalVerifier
+from vep import RemoteVerifier, LocalVerifier, DummyVerifier
 
 # This is an old assertion I generated on myfavoritebeer.org.
 EXPIRED_ASSERTION = """
@@ -122,26 +124,9 @@ EXPIRED_ASSERTION_DEV = """
 class TestLocalVerifier(unittest.TestCase):
 
     def setUp(self):
-        self.verifier = LocalVerifier()
-
-    def test_expired_assertion(self):
-        # It is invalid because it is expired.
-        self.assertRaises(ValueError, self.verifier.verify, EXPIRED_ASSERTION)
-        # But it'll verify OK if we find back the clock.
-        data = self.verifier.verify(EXPIRED_ASSERTION, now=0)
-        self.assertEquals(data["audience"], "http://myfavoritebeer.org")
-        self.assertEquals(data["email"], "ryan@rfk.id.au")
-
-    def test_junk(self):
-        self.assertRaises(ValueError, self.verifier.verify, "JUNK")
-        self.assertRaises(ValueError, self.verifier.verify, "J")
-        self.assertRaises(ValueError, self.verifier.verify, "\x01\x02")
-
-
-class TestLocalVerifier(unittest.TestCase):
-
-    def setUp(self):
-        self.verifier = LocalVerifier()
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("default")
+            self.verifier = LocalVerifier()
 
     def test_expired_assertion(self):
         # It is invalid because it is expired.
@@ -191,3 +176,59 @@ class TestRemoteVerifier(unittest.TestCase):
         self.assertRaises(ValueError, self.verifier.verify, "JUNK")
         self.assertRaises(ValueError, self.verifier.verify, "J")
         self.assertRaises(ValueError, self.verifier.verify, "\x01\x02")
+
+
+class TestDummyVerifier(unittest.TestCase):
+
+    def setUp(self):
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("default")
+            self.verifier = DummyVerifier()
+
+    def test_expired_assertion(self):
+        # It is invalid because it is expired.
+        self.assertRaises(ValueError,
+                          self.verifier.verify, EXPIRED_ASSERTION)
+
+    def test_expired_assertion_dev(self):
+        # It is invalid because it is expired.
+        self.assertRaises(ValueError,
+                          self.verifier.verify, EXPIRED_ASSERTION_DEV)
+
+    def test_junk(self):
+        self.assertRaises(ValueError, self.verifier.verify, "JUNK")
+        self.assertRaises(ValueError, self.verifier.verify, "J")
+        self.assertRaises(ValueError, self.verifier.verify, "\x01\x02")
+
+    def test_verification_of_dummy_assertion(self):
+        audience = "http://example.com"
+        assertion = self.verifier.make_assertion("test@example.com", audience)
+        self.assertTrue(self.verifier.verify(assertion))
+        self.assertTrue(self.verifier.verify(assertion, audience))
+        self.assertRaises(ValueError,
+                          self.verifier.verify, assertion, "http://moz.com")
+
+    def test_verification_of_expired_dummy_assertion(self):
+        audience = "http://example.com"
+        now = (time.time() * 1000)
+        assertion = self.verifier.make_assertion("test@example.com", audience,
+                                                 exp = now - 1)
+        self.assertTrue(self.verifier.verify(assertion, now=now-2))
+        self.assertRaises(ValueError,
+                          self.verifier.verify, assertion)
+
+    def test_verification_of_dummy_assertion_with_bad_assertion_sig(self):
+        audience = "http://example.com"
+        now = (time.time() * 1000)
+        assertion = self.verifier.make_assertion("test@example.com", audience,
+                                                 assertion_sig="BADTOTHEBONE")
+        self.assertRaises(ValueError,
+                          self.verifier.verify, assertion)
+
+    def test_verification_of_dummy_assertion_with_bad_certificate_sig(self):
+        audience = "http://example.com"
+        now = (time.time() * 1000)
+        assertion = self.verifier.make_assertion("test@example.com", audience,
+                                                 certificate_sig="CORRUPTUS")
+        self.assertRaises(ValueError,
+                          self.verifier.verify, assertion)

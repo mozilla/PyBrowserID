@@ -39,12 +39,13 @@ Utilities for dealing with Signed JSON Web Tokens.
 
 """
 
+import os
 import json
 import struct
 import hashlib
 import M2Crypto
 
-from vep.utils import decode_bytes
+from vep.utils import decode_bytes, encode_bytes
 
 
 class JWT(object):
@@ -53,6 +54,12 @@ class JWT(object):
     To parse a JWT from a bytestring, use JTW.parse(data).  The default
     constructor is only for internal purposes.
     """
+
+    def __init__(self, algorithm, payload, signature, signed_data):
+        self.algorithm = algorithm
+        self.payload = payload
+        self.signature = signature
+        self.signed_data = signed_data
 
     @classmethod
     def parse(cls, jwt):
@@ -64,11 +71,14 @@ class JWT(object):
         signature = decode_bytes(signature)
         return cls(algorithm, payload, signature, signed_data)
 
-    def __init__(self, algorithm, payload, signature, signed_data):
-        self.algorithm = algorithm
-        self.payload = payload
-        self.signature = signature
-        self.signed_data = signed_data
+    @classmethod
+    def generate(cls, payload, key):
+        """Generate and sign a JWT for a dict payload."""
+        alg = key.__class__.__name__[:-3]
+        algorithm = encode_bytes(json.dumps({"alg": alg}))
+        payload = encode_bytes(json.dumps(payload))
+        signature = encode_bytes(key.sign(".".join((algorithm, payload))))
+        return ".".join((algorithm, payload, signature))
 
     def check_signature(self, key_data):
         """Check that the JWT was signed with the given key."""
@@ -93,6 +103,9 @@ class Key(object):
     """Generic base class for Key objects."""
 
     def verify(self, signed_data, signature):
+        raise NotImplementedError
+
+    def sign(self, data):
         raise NotImplementedError
 
 
@@ -149,10 +162,14 @@ class DSKey(object):
     HASHMOD = None
 
     def __init__(self, data):
-        self.p = int(data["p"], 16)
-        self.q = int(data["q"], 16)
-        self.g = int(data["g"], 16)
-        self.y = int(data["y"], 16)
+        self.p = long(data["p"], 16)
+        self.q = long(data["q"], 16)
+        self.g = long(data["g"], 16)
+        self.y = long(data["y"], 16)
+        if "x" in data:
+            self.x = long(data["x"], 16)
+        else:
+            self.x = None
 
     def verify(self, signed_data, signature):
         p, q, g, y = self.p, self.q, self.g, self.y
@@ -161,21 +178,45 @@ class DSKey(object):
         signature = signature.rjust(hexlength * 2, "0")
         if len(signature) != hexlength * 2:
             return False
-        r = int(signature[:hexlength], 16)
-        s = int(signature[hexlength:], 16)
+        r = long(signature[:hexlength], 16)
+        s = long(signature[hexlength:], 16)
         if r <= 0 or r >= q:
             return False
         if s <= 0 or s >= q:
             return False
         w = modinv(s, q)
-        u1 = (int(self.HASHMOD(signed_data).hexdigest(), 16) * w) % q
+        u1 = (long(self.HASHMOD(signed_data).hexdigest(), 16) * w) % q
         u2 = (r * w) % q
         v = ((pow(g, u1, p) * pow(y, u2, p)) % p) % q
         return (v == r)
 
+    def sign(self, data):
+        p, q, g, y, x = self.p, self.q, self.g, self.y, self.x
+        if not x:
+            raise ValueError("private key not present")
+        # We need to do lots of if-not-this-then-start-over type tests.
+        while True:
+            k = long(os.urandom(self.BITLENGTH / 8).encode("hex"), 16) % q
+            if k == 0:
+                continue
+            r = pow(g, k, p) % q
+            if r == 0:
+                continue
+            h = (long(self.HASHMOD(data).hexdigest(), 16) + (x * r)) % q
+            s = (modinv(k, q) * h) % q
+            if s == 0:
+                continue
+            break
+        assert 0 < r < q
+        assert 0 < s < q
+        bytelength = self.BITLENGTH / 8
+        r_bytes = int2mpint(r)[4:].rjust(bytelength, "\x00")
+        s_bytes = int2mpint(s)[4:].rjust(bytelength, "\x00")
+        return r_bytes + s_bytes
+
 
 class DS128Key(DSKey):
-    BITLENGTH = 128
+    BITLENGTH = 160
     HASHMOD = hashlib.sha1
 
 

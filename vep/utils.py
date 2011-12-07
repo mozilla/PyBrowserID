@@ -68,6 +68,18 @@ def decode_bytes(value):
     return base64.urlsafe_b64decode(value)
 
 
+def encode_bytes(value):
+    """Encode BrowserID's base64 encoding format.
+
+    BrowserID likes to strip padding characters off of base64-encoded strings,
+    meaning we can't use the stdlib routines to encode them directly.  This
+    is a simple wrapper that strips the padding.
+    """
+    if isinstance(value, unicode):
+        value = value.encode("ascii")
+    return base64.urlsafe_b64encode(value).rstrip("=")
+
+
 # When using secure_urlopen we search for the platform default ca-cert file.
 # This is done on-demand and the result cached in this global variable.
 DEFAULT_CACERT_FILE = None
