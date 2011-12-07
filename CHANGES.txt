@@ -1,10 +1,19 @@
+0.2.0 - ????-??-??
+==================
+
+ * do more validation of the assertion before checking the certificates,
+   to avoid expensive crypto ops for things we know to be invalid.
+ * implement DummyVerifier class to aid in testing, both of this package
+   and of packages that are using PyVEP.
+
+
 0.1.1 - 2011-12-01
 ==================
 
- * add "diresworb.org" to default list of trusted secondaries
- * implement additional signature algorithms
+ * add "diresworb.org" to default list of trusted secondaries.
+ * implement additional signature algorithms.
  * if "hostname/.well-known/host-meta" gives a 404, fall back to "hostname/pk"
-   to find the public key
+   to find the public key.
 
 
 0.1.0 - 2011-11-23
