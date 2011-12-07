@@ -132,7 +132,7 @@ class RSKey(object):
         digest = self.HASHMOD(signed_data).digest()
         try:
             return self.rsa.verify(digest, signature, self.HASHNAME)
-        except M2Crypto.RSA.RSAError, e:
+        except M2Crypto.RSA.RSAError:
             return False
 
 

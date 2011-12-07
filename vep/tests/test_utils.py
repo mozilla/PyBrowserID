@@ -39,7 +39,6 @@ import unittest
 import threading
 import socket
 import ssl
-import urllib2
 
 from vep.errors import ConnectionError
 from vep.utils import secure_urlopen, encode_bytes, decode_bytes
