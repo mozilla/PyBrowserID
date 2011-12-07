@@ -133,8 +133,6 @@ class RSKey(object):
         try:
             return self.rsa.verify(digest, signature, self.HASHNAME)
         except M2Crypto.RSA.RSAError, e:
-            if "bad signature" not in str(e):
-                raise
             return False
 
 

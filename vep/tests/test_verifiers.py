@@ -39,7 +39,10 @@ import unittest
 import warnings
 
 from vep import RemoteVerifier, LocalVerifier, DummyVerifier
+from vep.utils import encode_json_bytes, encode_bytes, decode_json_bytes
+from vep.jwt import JWT, load_key
 from vep.errors import (TrustError,
+                        ConnectionError,
                         ExpiredSignatureError,
                         InvalidSignatureError,
                         AudienceMismatchError)
@@ -125,7 +128,36 @@ EXPIRED_ASSERTION_DEV = """
 """.replace(" ", "").replace("\n", "").strip()
 
 
-class TestLocalVerifier(unittest.TestCase):
+class VerifierTestCases(object):
+    """Generic testcases for Verifier implementations."""
+
+    def test_expired_assertion(self):
+        self.assertRaises(TrustError,
+                          self.verifier.verify, EXPIRED_ASSERTION)
+
+    def test_expired_assertion_dev(self):
+        self.assertRaises(TrustError,
+                          self.verifier.verify, EXPIRED_ASSERTION_DEV)
+
+    def test_junk(self):
+        self.assertRaises(ValueError, self.verifier.verify, "JUNK")
+        self.assertRaises(ValueError, self.verifier.verify, "J")
+        self.assertRaises(ValueError, self.verifier.verify, "\x01\x02")
+
+    def test_malformed_assertions(self):
+        # This one doesn't actually contain an assertion
+        assertion = encode_json_bytes({})
+        self.assertRaises(ValueError, self.verifier.verify, assertion)
+        # This one has no certificates
+        pub, priv = DummyVerifier._get_keypair("TEST")
+        assertion = encode_json_bytes({
+            "assertion": JWT.generate({"aud": "TEST"}, priv),
+            "certificates": []
+        })
+        self.assertRaises(ValueError, self.verifier.verify, assertion)
+
+
+class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
         with warnings.catch_warnings(record=True):
@@ -133,10 +165,8 @@ class TestLocalVerifier(unittest.TestCase):
             self.verifier = LocalVerifier()
 
     def test_expired_assertion(self):
-        # It is invalid because it is expired.
-        self.assertRaises(ExpiredSignatureError,
-                          self.verifier.verify, EXPIRED_ASSERTION)
-        # But it'll verify OK if we wind back the clock.
+        super(TestLocalVerifier, self).test_expired_assertion()
+        # It'll verify OK if we wind back the clock.
         data = self.verifier.verify(EXPIRED_ASSERTION, now=0)
         self.assertEquals(data["audience"], "http://myfavoritebeer.org")
         # And will fail if we give the wrong audience.
@@ -144,75 +174,198 @@ class TestLocalVerifier(unittest.TestCase):
                           self.verifier.verify, EXPIRED_ASSERTION, "h", 0)
 
     def test_expired_assertion_dev(self):
-        # It is invalid because it is expired.
-        self.assertRaises(ExpiredSignatureError,
-                          self.verifier.verify, EXPIRED_ASSERTION_DEV)
-        # But it'll verify OK if we wind back the clock.
+        super(TestLocalVerifier, self).test_expired_assertion_dev()
+        # It'll verify OK if we wind back the clock.
         data = self.verifier.verify(EXPIRED_ASSERTION_DEV, now=0)
         self.assertEquals(data["audience"], "http://dev.myfavoritebeer.org")
         # And will fail if we give the wrong audience.
         self.assertRaises(AudienceMismatchError,
                           self.verifier.verify, EXPIRED_ASSERTION_DEV, "h", 0)
 
-    def test_junk(self):
-        self.assertRaises(ValueError, self.verifier.verify, "JUNK")
-        self.assertRaises(ValueError, self.verifier.verify, "J")
-        self.assertRaises(ValueError, self.verifier.verify, "\x01\x02")
+    def test_error_while_fetching_public_key(self):
+        def fetch_public_key(hostname):
+            raise RuntimeError("TESTING")
+        self.verifier.fetch_public_key = fetch_public_key
+        self.assertRaises(ConnectionError,
+                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
+    def test_missing_host_meta_document(self):
+        def urlopen(url, data):
+            raise RuntimeError("404 Not Found")
+        self.verifier.urlopen = urlopen
+        self.assertRaises(ConnectionError,
+                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
+    def test_malformed_host_meta_document(self):
+        def urlopen(url, data):
+            class response(object):
+                @staticmethod
+                def read():
+                    return "I AINT NO XML, FOOL!"
+            return response
+        self.verifier.urlopen = urlopen
+        self.assertRaises(ConnectionError,
+                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
+    def test_host_meta_with_no_key_link(self):
+        def urlopen(url, data):
+            class response(object):
+                @staticmethod
+                def read():
+                    return "<Meta>"\
+                           " <Link rel='not the key link' href='haha' />"\
+                           "</Meta>"
+            return response
+        self.verifier.urlopen = urlopen
+        self.assertRaises(ConnectionError,
+                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
+    def test_host_meta_with_key_link(self):
+        #  The browserid.org server doesn't currently have host-meta.
+        #  This simulates it with a link to the known public key URL.
+        called = []
+        orig_urlopen = self.verifier.urlopen
+        def urlopen(url, data):
+            if called:
+                return orig_urlopen("https://browserid.org/pk")
+            called.append(True)
+            class response(object):
+                @staticmethod
+                def read():
+                    rel = self.verifier.HOST_META_REL_PUBKEY
+                    return "<Meta>"\
+                           " <Link rel='" + rel + "' href='haha' />"\
+                           "</Meta>"
+            return response
+        self.verifier.urlopen = urlopen
+        self.assertTrue(self.verifier.verify(EXPIRED_ASSERTION, now=0))
+
+    def test_handling_of_invalid_content_length_header_from_server(self):
+        def urlopen(url, data):
+            class response(object):
+                @staticmethod
+                def info():
+                    return {"Content-Length": "forty-two"}
+                @staticmethod
+                def read(size):
+                    raise RuntimeError  # pragma: nocover
+            return response
+        self.verifier.urlopen = urlopen
+        self.assertRaises(ConnectionError,
+                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
+    def test_error_handling_in_verify_certificate_chain(self):
+        self.assertRaises(ValueError,
+                          self.verifier.verify_certificate_chain, [])
+        certs = decode_json_bytes(EXPIRED_ASSERTION)["certificates"]
+        certs = [JWT.parse(cert) for cert in certs]
+        self.assertRaises(ExpiredSignatureError,
+                          self.verifier.verify_certificate_chain, certs)
+        self.assertTrue(self.verifier.verify_certificate_chain(certs, 0))
 
 
-class TestRemoteVerifier(unittest.TestCase):
+class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
         self.verifier = RemoteVerifier()
 
-    def test_expired_assertion(self):
-        # It is invalid because it is expired.
-        # But we can't (yet) get detailed reason for the failure.
-        self.assertRaises(TrustError,
+    def test_expired_assertion_dev(self):
+        self.verifier.verifier_url = "https://dev.diresworb.org/verify"
+        super(TestRemoteVerifier, self).test_expired_assertion_dev()
+
+    def test_handling_of_valid_response_from_server(self):
+        def urlopen(url, data):
+            class response(object):
+                @staticmethod
+                def read():
+                    return '{"email": "t@m.com", '\
+                           ' "status": "okay", '\
+                           ' "audience": "http://myfavoritebeer.org"}'
+            return response
+        self.verifier.urlopen = urlopen
+        data = self.verifier.verify(EXPIRED_ASSERTION)
+        self.assertEquals(data["email"], "t@m.com")
+
+    def test_handling_of_invalid_content_length_header_from_server(self):
+        def urlopen(url, data):
+            class response(object):
+                @staticmethod
+                def info():
+                    return {"Content-Length": "forty-two"}
+                @staticmethod
+                def read(size):
+                    raise RuntimeError  # pragma: nocover
+            return response
+        self.verifier.urlopen = urlopen
+        self.assertRaises(ConnectionError,
                           self.verifier.verify, EXPIRED_ASSERTION)
 
-    def test_expired_assertion_dev(self):
-        # It is invalid because it is expired.
-        # It is invalid because it is expired.
-        self.verifier.verifier_url = "https://dev.diresworb.org/verify"
-        self.assertRaises(TrustError,
-                          self.verifier.verify, EXPIRED_ASSERTION_DEV)
+    def test_handling_of_invalid_json_from_server(self):
+        def urlopen(url, data):
+            class response(object):
+                @staticmethod
+                def read():
+                    return "SERVER RETURNS SOMETHING THAT ISNT JSON"
+            return response
+        self.verifier.urlopen = urlopen
+        self.assertRaises(ConnectionError,
+                          self.verifier.verify, EXPIRED_ASSERTION)
 
-    def test_junk(self):
-        self.assertRaises(ValueError, self.verifier.verify, "JUNK")
-        self.assertRaises(ValueError, self.verifier.verify, "J")
-        self.assertRaises(ValueError, self.verifier.verify, "\x01\x02")
+    def test_handling_of_incorrect_audience_returned_by_server(self):
+        def urlopen(url, data):
+            class response(object):
+                @staticmethod
+                def read():
+                    return '{"email": "t@m.com", '\
+                           ' "status": "okay", '\
+                           '"audience": "WRONG"}'
+            return response
+        self.verifier.urlopen = urlopen
+        self.assertRaises(AudienceMismatchError,
+                          self.verifier.verify, EXPIRED_ASSERTION)
+
+    def test_handling_of_500_error_from_server(self):
+        def urlopen(url, data):
+            raise ConnectionError("500 Server Error")
+        self.verifier.urlopen = urlopen
+        self.assertRaises(ValueError,
+                          self.verifier.verify, EXPIRED_ASSERTION)
+
+    def test_handling_of_503_error_from_server(self):
+        def urlopen(url, data):
+            raise ConnectionError("503 Back Off Will Ya?!")
+        self.verifier.urlopen = urlopen
+        self.assertRaises(ConnectionError,
+                          self.verifier.verify, EXPIRED_ASSERTION)
 
 
-class TestDummyVerifier(unittest.TestCase):
+class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("default")
             self.verifier = DummyVerifier()
 
-    def test_expired_assertion(self):
-        # It is invalid because it is expired.
-        self.assertRaises(ExpiredSignatureError,
-                          self.verifier.verify, EXPIRED_ASSERTION)
-
-    def test_expired_assertion_dev(self):
-        # It is invalid because it is expired.
-        self.assertRaises(ExpiredSignatureError,
-                          self.verifier.verify, EXPIRED_ASSERTION_DEV)
-
-    def test_junk(self):
-        self.assertRaises(ValueError, self.verifier.verify, "JUNK")
-        self.assertRaises(ValueError, self.verifier.verify, "J")
-        self.assertRaises(ValueError, self.verifier.verify, "\x01\x02")
-
-    def test_verification_of_dummy_assertion(self):
+    def test_verification_of_valid_dummy_assertion(self):
         audience = "http://example.com"
         assertion = self.verifier.make_assertion("test@example.com", audience)
         self.assertTrue(self.verifier.verify(assertion))
         self.assertTrue(self.verifier.verify(assertion, audience))
         self.assertRaises(AudienceMismatchError,
                           self.verifier.verify, assertion, "http://moz.com")
+
+    def test_verification_of_untrusted_issuer(self):
+        audience = "http://example.com"
+        issuer = "moz.com"
+        # Assertions for @moz.com addresses can come from moz.com
+        assertion = self.verifier.make_assertion("test@moz.com", audience,
+                                                 issuer=issuer)
+        self.assertTrue(self.verifier.verify(assertion, audience))
+        # But assertions for other addresses cannot.
+        assertion = self.verifier.make_assertion("test@example.com", audience,
+                                                 issuer=issuer)
+        self.assertRaises(InvalidSignatureError,
+                          self.verifier.verify, assertion, audience)
 
     def test_verification_of_expired_dummy_assertion(self):
         audience = "http://example.com"
@@ -236,3 +389,26 @@ class TestDummyVerifier(unittest.TestCase):
                                                  certificate_sig="CORRUPTUS")
         self.assertRaises(InvalidSignatureError,
                           self.verifier.verify, assertion)
+
+
+class TestJWT(unittest.TestCase):
+
+    def test_error_jwt_with_no_algorithm(self):
+        jwt = ".".join((
+          encode_json_bytes({}),
+          encode_json_bytes({}),
+          encode_bytes("signature"),
+        ))
+        self.assertRaises(ValueError, JWT.parse, jwt)
+
+    def test_error_jwt_with_mismatched_algorithm(self):
+        pub, priv = DummyVerifier._get_keypair("TEST")
+        jwt = JWT.generate({}, priv)
+        jwt = JWT.parse(jwt)
+        pub["algorithm"] = "RS"
+        self.assertFalse(jwt.check_signature(pub))
+
+    def test_loading_unknown_algorithms(self):
+        self.assertRaises(ValueError, load_key, "os.unlink", {})
+        self.assertRaises(ValueError, load_key, "EG", {})
+        self.assertRaises(ValueError, load_key, "DS64", {})

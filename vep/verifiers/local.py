@@ -181,7 +181,9 @@ class LocalVerifier(object):
                         pubkey_url = link.attributes["href"].value
                         break
             else:
-                raise ValueError("Host has no public key")
+                # This will be caught by the enclosing try-except.
+                # Just like a goto...
+                raise ValueError("Host has no public key file")
         except Exception, e:
             # We have no guarantee what sort of error will get raised
             # or how to find the status code from it :-(

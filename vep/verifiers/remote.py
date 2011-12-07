@@ -82,13 +82,20 @@ class RemoteVerifier(object):
             try:
                 token = decode_json_bytes(assertion)["assertion"]
                 audience = decode_json_bytes(token.split(".")[1])["aud"]
-            except KeyError:
+            except (KeyError, IndexError):
                 raise ValueError("Malformed JWT")
         # Encode the data into x-www-form-urlencoded.
         post_data = {"assertion": assertion, "audience": audience}
         post_data = "&".join("%s=%s" % item for item in post_data.items())
         # Post it to the verifier.
-        resp = self.urlopen(self.verifier_url, post_data)
+        try:
+            resp = self.urlopen(self.verifier_url, post_data)
+        except ConnectionError, e:
+            # BrowserID server sends "500 server error" for broken assertions.
+            # For now, just translate that directly.  Should check by hand.
+            if "500" in str(e):
+                raise ValueError("Malformed assertion")
+            raise
         # Read the response, being careful to raise an appropriate
         # error if the server does something funny.
         try:
@@ -108,5 +115,5 @@ class RemoteVerifier(object):
         if data.get('status') != "okay":
             raise InvalidSignatureError(str(data))
         if data.get('audience') != audience:
-            raise AudienceMismatchError(data.get("audience"))
+            raise AudienceMismatchError(data.get("audience"), audience)
         return data

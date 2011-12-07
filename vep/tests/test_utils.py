@@ -130,7 +130,18 @@ class TestUtils(unittest.TestCase):
 
     def test_encode_decode_bytes(self):
         self.assertEquals("HELLO", decode_bytes(encode_bytes("HELLO")))
+        self.assertEquals("HELLO", decode_bytes(encode_bytes(u"HELLO")))
+        self.assertRaises(ValueError, decode_bytes, u"\N{SNOWMAN}")
+        self.assertRaises(ValueError, decode_bytes, "A===")
 
     def test_encode_decode_json_bytes(self):
         obj = {"hello": "world"}
         self.assertEquals(obj, decode_json_bytes(encode_json_bytes(obj)))
+        self.assertRaises(ValueError,
+                          decode_json_bytes, encode_bytes("NOJSON4U"))
+        self.assertRaises(ValueError,
+                          decode_json_bytes, encode_bytes("42"))
+        self.assertRaises(ValueError,
+                          decode_json_bytes, encode_bytes("[1, 2, 3]"))
+        self.assertRaises(ValueError, encode_json_bytes, 42)
+        self.assertRaises(ValueError, encode_json_bytes, [1, 3, 3])
