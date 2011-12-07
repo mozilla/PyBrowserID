@@ -37,7 +37,6 @@
 import time
 import json
 import hashlib
-import urlparse
 
 from vep.verifiers.local import LocalVerifier
 from vep.utils import encode_bytes
@@ -133,7 +132,6 @@ class DummyVerifier(LocalVerifier):
           "assertion": assertion,
         }
         return encode_bytes(json.dumps(data))
-
 
     @classmethod
     def _get_keypair(cls, hostname):

@@ -34,24 +34,12 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import time
 import json
-from urlparse import urljoin
-from xml.dom import minidom
 
-from vep.utils import secure_urlopen, decode_bytes
-from vep.jwt import JWT
-
-import warnings
-warning_message = "The VEP certificate format has not been finalized and may "\
-                  "change in backwards-incompatible ways.  If you find that "\
-                  "the latest version of this module cannot verify a valid "\
-                  "VEP assertion, please contact the author."
-
-
-def warn_about_certificate_format_changes(stacklevel=2):
-    warnings.warn(warning_message, FutureWarning, stacklevel=stacklevel)
-
+from vep.utils import secure_urlopen, decode_json_bytes
+from vep.errors import (InvalidSignatureError,
+                        ConnectionError,
+                        AudienceMismatchError)
 
 BROWSERID_VERIFIER_URL = "https://browserid.org/verify"
 
@@ -91,25 +79,34 @@ class RemoteVerifier(object):
         """
         # Read audience from assertion if not specified.
         if audience is None:
-            token = json.loads(decode_bytes(assertion))["assertion"]
-            audience = json.loads(decode_bytes(token.split(".")[1]))["aud"]
+            try:
+                token = decode_json_bytes(assertion)["assertion"]
+                audience = decode_json_bytes(token.split(".")[1])["aud"]
+            except KeyError:
+                raise ValueError("Malformed JWT")
         # Encode the data into x-www-form-urlencoded.
         post_data = {"assertion": assertion, "audience": audience}
         post_data = "&".join("%s=%s" % item for item in post_data.items())
         # Post it to the verifier.
         resp = self.urlopen(self.verifier_url, post_data)
+        # Read the response, being careful to raise an appropriate
+        # error if the server does something funny.
         try:
-            info = resp.info()
-        except AttributeError:
-            info = {}
-        content_length = info.get("Content-Length")
-        if content_length is None:
-            data = resp.read()
-        else:
-            data = resp.read(int(content_length))
-        data = json.loads(data)
+            try:
+                info = resp.info()
+            except AttributeError:
+                info = {}
+            content_length = info.get("Content-Length")
+            if content_length is None:
+                data = resp.read()
+            else:
+                data = resp.read(int(content_length))
+            data = json.loads(data)
+        except ValueError:
+            raise ConnectionError("server returned invalid response")
         # Did it come back clean?
         if data.get('status') != "okay":
-            raise ValueError(str(data))
-        assert data.get('audience') == audience
+            raise InvalidSignatureError(str(data))
+        if data.get('audience') != audience:
+            raise AudienceMismatchError(data.get("audience"))
         return data

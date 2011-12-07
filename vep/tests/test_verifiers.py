@@ -39,6 +39,10 @@ import unittest
 import warnings
 
 from vep import RemoteVerifier, LocalVerifier, DummyVerifier
+from vep.errors import (TrustError,
+                        ExpiredSignatureError,
+                        InvalidSignatureError,
+                        AudienceMismatchError)
 
 # This is an old assertion I generated on myfavoritebeer.org.
 EXPIRED_ASSERTION = """
@@ -124,30 +128,30 @@ EXPIRED_ASSERTION_DEV = """
 class TestLocalVerifier(unittest.TestCase):
 
     def setUp(self):
-        with warnings.catch_warnings(record=True) as w:
+        with warnings.catch_warnings(record=True):
             warnings.simplefilter("default")
             self.verifier = LocalVerifier()
 
     def test_expired_assertion(self):
         # It is invalid because it is expired.
-        self.assertRaises(ValueError,
+        self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify, EXPIRED_ASSERTION)
         # But it'll verify OK if we wind back the clock.
         data = self.verifier.verify(EXPIRED_ASSERTION, now=0)
         self.assertEquals(data["audience"], "http://myfavoritebeer.org")
         # And will fail if we give the wrong audience.
-        self.assertRaises(ValueError,
+        self.assertRaises(AudienceMismatchError,
                           self.verifier.verify, EXPIRED_ASSERTION, "h", 0)
 
     def test_expired_assertion_dev(self):
         # It is invalid because it is expired.
-        self.assertRaises(ValueError,
+        self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify, EXPIRED_ASSERTION_DEV)
         # But it'll verify OK if we wind back the clock.
         data = self.verifier.verify(EXPIRED_ASSERTION_DEV, now=0)
         self.assertEquals(data["audience"], "http://dev.myfavoritebeer.org")
         # And will fail if we give the wrong audience.
-        self.assertRaises(ValueError,
+        self.assertRaises(AudienceMismatchError,
                           self.verifier.verify, EXPIRED_ASSERTION_DEV, "h", 0)
 
     def test_junk(self):
@@ -163,13 +167,15 @@ class TestRemoteVerifier(unittest.TestCase):
 
     def test_expired_assertion(self):
         # It is invalid because it is expired.
-        self.assertRaises(ValueError,
+        # But we can't (yet) get detailed reason for the failure.
+        self.assertRaises(TrustError,
                           self.verifier.verify, EXPIRED_ASSERTION)
 
     def test_expired_assertion_dev(self):
         # It is invalid because it is expired.
+        # It is invalid because it is expired.
         self.verifier.verifier_url = "https://dev.diresworb.org/verify"
-        self.assertRaises(ValueError,
+        self.assertRaises(TrustError,
                           self.verifier.verify, EXPIRED_ASSERTION_DEV)
 
     def test_junk(self):
@@ -187,12 +193,12 @@ class TestDummyVerifier(unittest.TestCase):
 
     def test_expired_assertion(self):
         # It is invalid because it is expired.
-        self.assertRaises(ValueError,
+        self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify, EXPIRED_ASSERTION)
 
     def test_expired_assertion_dev(self):
         # It is invalid because it is expired.
-        self.assertRaises(ValueError,
+        self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify, EXPIRED_ASSERTION_DEV)
 
     def test_junk(self):
@@ -205,30 +211,28 @@ class TestDummyVerifier(unittest.TestCase):
         assertion = self.verifier.make_assertion("test@example.com", audience)
         self.assertTrue(self.verifier.verify(assertion))
         self.assertTrue(self.verifier.verify(assertion, audience))
-        self.assertRaises(ValueError,
+        self.assertRaises(AudienceMismatchError,
                           self.verifier.verify, assertion, "http://moz.com")
 
     def test_verification_of_expired_dummy_assertion(self):
         audience = "http://example.com"
         now = (time.time() * 1000)
         assertion = self.verifier.make_assertion("test@example.com", audience,
-                                                 exp = now - 1)
-        self.assertTrue(self.verifier.verify(assertion, now=now-2))
-        self.assertRaises(ValueError,
+                                                 exp=now - 1)
+        self.assertTrue(self.verifier.verify(assertion, now=now - 2))
+        self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify, assertion)
 
     def test_verification_of_dummy_assertion_with_bad_assertion_sig(self):
         audience = "http://example.com"
-        now = (time.time() * 1000)
         assertion = self.verifier.make_assertion("test@example.com", audience,
                                                  assertion_sig="BADTOTHEBONE")
-        self.assertRaises(ValueError,
+        self.assertRaises(InvalidSignatureError,
                           self.verifier.verify, assertion)
 
     def test_verification_of_dummy_assertion_with_bad_certificate_sig(self):
         audience = "http://example.com"
-        now = (time.time() * 1000)
         assertion = self.verifier.make_assertion("test@example.com", audience,
                                                  certificate_sig="CORRUPTUS")
-        self.assertRaises(ValueError,
+        self.assertRaises(InvalidSignatureError,
                           self.verifier.verify, assertion)

@@ -35,25 +35,36 @@
 # ***** END LICENSE BLOCK *****
 """
 
-Python library for the Verified Email Protocol.
+Error classes for PyVEP.
 
 """
 
-__ver_major__ = 0
-__ver_minor__ = 2
-__ver_patch__ = 0
-__ver_sub__ = "dev"
-__ver_tuple__ = (__ver_major__, __ver_minor__, __ver_patch__, __ver_sub__)
-__version__ = "%d.%d.%d%s" % __ver_tuple__
+
+class Error(Exception):
+    """Base error class for all PyVEP exceptions."""
+    pass
 
 
-from vep.errors import (Error,  # NOQA
-                        ConnectionError,  # NOQA
-                        TrustError,  # NOAQ
-                        ExpiredSignatureError,  # NOQA
-                        InvalidSignatureError,  # NOQA
-                        AudienceMismatchError)  # NOQA
+class ConnectionError(Error):
+    """Error raised when PyVEP fails to connect to a remote server."""
+    pass
 
-from vep.verifiers.remote import RemoteVerifier  # NOQA
-from vep.verifiers.local import LocalVerifier  # NOQA
-from vep.verifiers.dummy import DummyVerifier  # NOQA
+
+class TrustError(Error):
+    """Base error class when assertions are well-formed but untrusted."""
+    pass
+
+
+class InvalidSignatureError(TrustError):
+    """Error raised when PyVEP encounters an invalid signature."""
+    pass
+
+
+class ExpiredSignatureError(TrustError):
+    """Error raised when PyVEP encounters an expired signature or assertion."""
+    pass
+
+
+class AudienceMismatchError(TrustError):
+    """Error raised when the audience does not match."""
+    pass

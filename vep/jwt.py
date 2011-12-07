@@ -40,12 +40,12 @@ Utilities for dealing with Signed JSON Web Tokens.
 """
 
 import os
-import json
 import struct
 import hashlib
 import M2Crypto
 
 from vep.utils import decode_bytes, encode_bytes
+from vep.utils import decode_json_bytes, encode_json_bytes
 
 
 class JWT(object):
@@ -66,8 +66,11 @@ class JWT(object):
         """Parse a JWT from a string."""
         algorithm, payload, signature = jwt.split(".")
         signed_data = algorithm + "." + payload
-        algorithm = json.loads(decode_bytes(algorithm))["alg"]
-        payload = json.loads(decode_bytes(payload))
+        try:
+            algorithm = decode_json_bytes(algorithm)["alg"]
+        except KeyError:
+            raise ValueError("badly formed JWT")
+        payload = decode_json_bytes(payload)
         signature = decode_bytes(signature)
         return cls(algorithm, payload, signature, signed_data)
 
@@ -75,8 +78,8 @@ class JWT(object):
     def generate(cls, payload, key):
         """Generate and sign a JWT for a dict payload."""
         alg = key.__class__.__name__[:-3]
-        algorithm = encode_bytes(json.dumps({"alg": alg}))
-        payload = encode_bytes(json.dumps(payload))
+        algorithm = encode_json_bytes({"alg": alg})
+        payload = encode_json_bytes(payload)
         signature = encode_bytes(key.sign(".".join((algorithm, payload))))
         return ".".join((algorithm, payload, signature))
 
@@ -91,11 +94,13 @@ class JWT(object):
 def load_key(algorithm, key_data):
     """Load a Key object from the given data."""
     if not algorithm.isalnum():
-        raise ValueError("unknown signing algorithm: %s" % (algorithm,))
+        msg = "unknown signing algorithm: %s" % (algorithm,)
+        raise ValueError(msg)
     try:
         key_class = globals()[algorithm + "Key"]
     except KeyError:
-        raise ValueError("unknown signing algorithm: %s" % (algorithm,))
+        msg = "unknown signing algorithm: %s" % (algorithm,)
+        raise ValueError(msg)
     return key_class(key_data)
 
 

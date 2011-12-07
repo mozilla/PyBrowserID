@@ -41,7 +41,9 @@ import socket
 import ssl
 import urllib2
 
-from vep.utils import secure_urlopen
+from vep.errors import ConnectionError
+from vep.utils import secure_urlopen, encode_bytes, decode_bytes
+from vep.utils import encode_json_bytes, decode_json_bytes
 
 
 def _filepath(name):
@@ -111,11 +113,11 @@ class TestUtils(unittest.TestCase):
         try:
             kwds = {"timeout": 1}
             # We don't trust the server's certificate, so this fails.
-            self.assertRaises(urllib2.URLError,
+            self.assertRaises(ConnectionError,
                               secure_urlopen, server.base_url, **kwds)
             # The certificate doesn't belong to localhost, so this fails.
             kwds["ca_certs"] = server.certfile
-            self.assertRaises(urllib2.URLError,
+            self.assertRaises(ConnectionError,
                               secure_urlopen, server.base_url, **kwds)
             # Set a valid cert for local host, trust it, we succeed.
             server.certfile = _filepath("certs/localhost.crt")
@@ -125,3 +127,10 @@ class TestUtils(unittest.TestCase):
                               "OK")
         finally:
             server.shutdown()
+
+    def test_encode_decode_bytes(self):
+        self.assertEquals("HELLO", decode_bytes(encode_bytes("HELLO")))
+
+    def test_encode_decode_json_bytes(self):
+        obj = {"hello": "world"}
+        self.assertEquals(obj, decode_json_bytes(encode_json_bytes(obj)))

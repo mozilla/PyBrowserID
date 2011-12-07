@@ -5,6 +5,8 @@
    to avoid expensive crypto ops for things we know to be invalid.
  * implement DummyVerifier class to aid in testing, both of this package
    and of packages that are using PyVEP.
+ * add exception hierarchy in vep.errors, so that calling code can easily
+   tell why verification failed.
 
 
 0.1.1 - 2011-12-01

@@ -40,6 +40,7 @@ Utility functions for PyVEP.
 """
 
 import os
+import json
 import ssl
 import time
 import base64
@@ -48,6 +49,8 @@ import httplib
 import urllib2
 from fnmatch import fnmatch
 
+from vep.errors import ConnectionError
+
 
 def decode_bytes(value):
     """Decode BrowserID's base64 encoding format.
@@ -55,6 +58,8 @@ def decode_bytes(value):
     BrowserID likes to strip padding characters off of base64-encoded strings,
     meaning we can't use the stdlib routines to decode them directly.  This
     is a simple wrapper that adds the padding back in.
+
+    If the value is not correctly encoded, ValueErro will be raised.
     """
     if isinstance(value, unicode):
         value = value.encode("ascii")
@@ -65,7 +70,10 @@ def decode_bytes(value):
         value += "="
     elif pad != 0:
         raise ValueError("incorrect b64 encoding")
-    return base64.urlsafe_b64decode(value)
+    try:
+        return base64.urlsafe_b64decode(value)
+    except TypeError, e:
+        raise ValueError(str(e))
 
 
 def encode_bytes(value):
@@ -78,6 +86,26 @@ def encode_bytes(value):
     if isinstance(value, unicode):
         value = value.encode("ascii")
     return base64.urlsafe_b64encode(value).rstrip("=")
+
+
+def decode_json_bytes(value):
+    """Decode a JSON object from some encoded bytes.
+
+    This function decodes a JSON object from bytes encoded in the BrowserID
+    base64 format.  If the bytes and invalid or do not encode a proper object,
+    ValueError is raised.
+    """
+    obj = json.loads(decode_bytes(value))
+    if not isinstance(obj, dict):
+        raise ValueError("JSON did not contain an object")
+    return obj
+
+
+def encode_json_bytes(obj):
+    """Encode an object as JSON bytes in the BrowserID base64 format."""
+    if not isinstance(obj, dict):
+        raise ValueError("Value is not a JSON object")
+    return encode_bytes(json.dumps(obj))
 
 
 # When using secure_urlopen we search for the platform default ca-cert file.
@@ -110,14 +138,17 @@ def secure_urlopen(url, data=None, timeout=None, ca_certs=None):
                     break
             if ca_certs is None:
                 err = "could not locate default ca_certs file"
-                raise RuntimeError(err)
+                raise ConnectionError(err)
     # Use a cached opener if possible.
     try:
         opener = _OPENER_CACHE[ca_certs]
     except KeyError:
         opener = urllib2.build_opener(ValidatingHTTPSHandler(ca_certs))
         _OPENER_CACHE[ca_certs] = opener
-    return opener.open(url, data, timeout)
+    try:
+        return opener.open(url, data, timeout)
+    except (EnvironmentError, httplib.HTTPException), e:
+        raise ConnectionError(str(e))
 
 
 class ValidatingHTTPSHandler(urllib2.HTTPSHandler):

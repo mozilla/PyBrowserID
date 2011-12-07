@@ -40,8 +40,12 @@ import warnings
 from urlparse import urljoin
 from xml.dom import minidom
 
-from vep.utils import secure_urlopen, decode_bytes
 from vep.jwt import JWT
+from vep.utils import secure_urlopen, decode_json_bytes
+from vep.errors import (ConnectionError,
+                        InvalidSignatureError,
+                        ExpiredSignatureError,
+                        AudienceMismatchError)
 
 
 DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
@@ -94,31 +98,35 @@ class LocalVerifier(object):
         """
         if now is None:
             now = int(time.time() * 1000)
-        data = json.loads(decode_bytes(assertion))
-        # Check that the assertion is usable and valid.
-        # No point doing all that crypto if we're going to fail out anyway.
-        assertion = JWT.parse(data["assertion"])
-        if audience is not None:
-            if assertion.payload["aud"] != audience:
-                raise ValueError("mismatched audience")
-        if assertion.payload["exp"] < now:
-            raise ValueError("expired assertion")
-        # Parse out the list of certificates.
-        certificates = data["certificates"]
-        certificates = [JWT.parse(c) for c in certificates]
-        # Check that the root issuer is trusted.
-        # No point doing all that crypto if we're going to fail out anyway.
-        email = certificates[-1].payload["principal"]["email"]
-        root_issuer = certificates[0].payload["iss"]
-        if root_issuer not in self.trusted_secondaries:
-            if not email.endswith("@" + root_issuer):
-                msg = "untrusted root issuer: %s" % (root_issuer,)
-                raise ValueError(msg)
-        # Verify the entire chain of certificates.
-        cert = self.verify_certificate_chain(certificates, now=now)
-        # Check the signature on the assertion.
-        if not assertion.check_signature(cert.payload["public-key"]):
-            raise ValueError("invalid signature on assertion")
+        data = decode_json_bytes(assertion)
+        # This catches KeyError and turns it into ValueError.
+        try:
+            # Check that the assertion is usable and valid.
+            # No point doing all that crypto if we're going to fail out anyway.
+            assertion = JWT.parse(data["assertion"])
+            if audience is not None:
+                if assertion.payload["aud"] != audience:
+                    raise AudienceMismatchError(assertion.payload["aud"])
+            if assertion.payload["exp"] < now:
+                raise ExpiredSignatureError(assertion.payload["exp"])
+            # Parse out the list of certificates.
+            certificates = data["certificates"]
+            certificates = [JWT.parse(c) for c in certificates]
+            # Check that the root issuer is trusted.
+            # No point doing all that crypto if we're going to fail out anyway.
+            email = certificates[-1].payload["principal"]["email"]
+            root_issuer = certificates[0].payload["iss"]
+            if root_issuer not in self.trusted_secondaries:
+                if not email.endswith("@" + root_issuer):
+                    msg = "untrusted root issuer: %s" % (root_issuer,)
+                    raise InvalidSignatureError(msg)
+            # Verify the entire chain of certificates.
+            cert = self.verify_certificate_chain(certificates, now=now)
+            # Check the signature on the assertion.
+            if not assertion.check_signature(cert.payload["public-key"]):
+                raise InvalidSignatureError("invalid signature on assertion")
+        except KeyError:
+            raise ValueError("Malformed JWT")
         # Looks good!
         return {"status": "okay",
                 "audience": assertion.payload["aud"],
@@ -146,7 +154,7 @@ class LocalVerifier(object):
                 ok = False
             self.public_keys[hostname] = (ok, key)
         if not ok:
-            raise ValueError(key)
+            raise ConnectionError(key)
         return key
 
     def fetch_public_key(self, hostname):
@@ -191,7 +199,8 @@ class LocalVerifier(object):
 
         If the entire chain is valid then to final certificate is returned.
         """
-        assert certificates
+        if not certificates:
+            raise ValueError("chain must have at least one certificate")
         if now is None:
             now = int(time.time() * 1000)
         root_issuer = certificates[0].payload["iss"]
@@ -199,9 +208,9 @@ class LocalVerifier(object):
         current_key = root_key
         for cert in certificates:
             if cert.payload["exp"] < now:
-                raise ValueError("expired certificate in chain")
+                raise ExpiredSignatureError("expired certificate in chain")
             if not cert.check_signature(current_key):
-                raise ValueError("bad signature in chain")
+                raise InvalidSignatureError("bad signature in chain")
             current_key = cert.payload["public-key"]
         return cert
 
@@ -216,5 +225,8 @@ class LocalVerifier(object):
         if content_length is None:
             data = resp.read()
         else:
-            data = resp.read(int(content_length))
+            try:
+                data = resp.read(int(content_length))
+            except ValueError:
+                raise ConnectionError("server sent invalid content-length")
         return data
