@@ -34,14 +34,9 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import os
 import unittest
-import threading
-import socket
-import ssl
-import urllib2
 
-from vep import secure_urlopen, RemoteVerifier, LocalVerifier
+from vep import RemoteVerifier, LocalVerifier
 
 # This is an old assertion I generated on myfavoritebeer.org.
 EXPIRED_ASSERTION = """
@@ -63,6 +58,8 @@ EXPIRED_ASSERTION = """
     6cDRGRjlUclBjNjBTRXcifQ
 """.replace(" ", "").replace("\n", "").strip()
 
+
+# This is an old assertion I generated on dev.myfavoritebeer.org.
 EXPIRED_ASSERTION_DEV = """
     eyJjZXJ0aWZpY2F0ZXMiOlsiZXlKaGJHY2lPaUpFVXpJMU5pSjkuZXlKcGMzTWlPaU
     prWlhZdVpHbHlaWE4zYjNKaUxtOXlaeUlzSW1WNGNDSTZNVE15TWpFd01UZzNPVGd5
@@ -120,89 +117,6 @@ EXPIRED_ASSERTION_DEV = """
     RaM0Y5djNvZjhhNU1SWVpXNkQzN3dOSWlNYmRZTEJBTHRzR3Z3RVZ2ZC1ncWpldWtt
     Z1hHTWM0Ynl0dFEifQ
 """.replace(" ", "").replace("\n", "").strip()
-
-
-def _filepath(name):
-    return os.path.join(os.path.dirname(__file__), name)
-
-
-class TestingServer(object):
-    """Class to spin up a local SSL server with a self-signed certificate.
-
-    This class runs a simple SSL server on localhost:8080, which will answer
-    "OK" to any and all requests.  It uses a self-signed certificate from the
-    file self.certfile.
-    """
-
-    def __init__(self):
-        self.running = False
-        self.certfile = _filepath("certs/selfsigned.crt")
-        self.keyfile = _filepath("certs/selfsigned.key")
-
-    def start(self):
-        self.socket = socket.socket()
-        self.socket.bind(("localhost", 8080))
-        self.socket.listen(1)
-        self.running = True
-        self.runthread = threading.Thread(target=self.run)
-        self.runthread.start()
-        self.base_url = "https://localhost:8080"
-
-    def run(self):
-        while self.running:
-            try:
-                sock, addr = self.socket.accept()
-                sock = ssl.wrap_socket(sock,
-                                       server_side=True,
-                                       certfile=self.certfile,
-                                       keyfile=self.keyfile,
-                                       ssl_version=ssl.PROTOCOL_SSLv3)
-                try:
-                    sock.sendall("HTTP/1.1 200 OK\r\n")
-                    sock.sendall("Content-Type: text/plain\r\n")
-                    sock.sendall("Content-Length: 2\r\n")
-                    sock.sendall("\r\n")
-                    sock.sendall("OK")
-                finally:
-                    sock.shutdown(socket.SHUT_RDWR)
-                    sock.close()
-            except Exception:
-                pass
-
-    def shutdown(self):
-        self.running = False
-        try:
-            secure_urlopen(self.base_url, timeout=1).read()
-        except Exception:
-            pass
-        self.socket.close()
-        self.runthread.join()
-        del self.runthread
-        del self.base_url
-
-
-class TestUtils(unittest.TestCase):
-
-    def test_secure_urlopen(self):
-        server = TestingServer()
-        server.start()
-        try:
-            kwds = {"timeout": 1}
-            # We don't trust the server's certificate, so this fails.
-            self.assertRaises(urllib2.URLError,
-                              secure_urlopen, server.base_url, **kwds)
-            # The certificate doesn't belong to localhost, so this fails.
-            kwds["ca_certs"] = server.certfile
-            self.assertRaises(urllib2.URLError,
-                              secure_urlopen, server.base_url, **kwds)
-            # Set a valid cert for local host, trust it, we succeed.
-            server.certfile = _filepath("certs/localhost.crt")
-            server.keyfile = _filepath("certs/localhost.key")
-            kwds["ca_certs"] = server.certfile
-            self.assertEquals(secure_urlopen(server.base_url, **kwds).read(),
-                              "OK")
-        finally:
-            server.shutdown()
 
 
 class TestLocalVerifier(unittest.TestCase):
