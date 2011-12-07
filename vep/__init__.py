@@ -60,6 +60,8 @@ warning_message = "The VEP certificate format has not been finalized and may "\
                   "change in backwards-incompatible ways.  If you find that "\
                   "the latest version of this module cannot verify a valid "\
                   "VEP assertion, please contact the author."
+
+
 def warn_about_certificate_format_changes(stacklevel=2):
     warnings.warn(warning_message, FutureWarning, stacklevel=stacklevel)
 
@@ -182,14 +184,14 @@ class LocalVerifier(object):
         certificates = [JWT.parse(c) for c in certificates]
         # Check that the root issuer is trusted.
         # No point doing all that crypto if we're going to fail out anyway.
+        email = certificates[-1].payload["principal"]["email"]
         root_issuer = certificates[0].payload["iss"]
         if root_issuer not in self.trusted_secondaries:
             if not email.endswith("@" + root_issuer):
                 msg = "untrusted root issuer: %s" % (root_issuer,)
                 raise ValueError(msg)
-        # Follow the certificate chain to get to the claiming principal.
+        # Verify the entire chain of certificates.
         cert = self.verify_certificate_chain(certificates, now=now)
-        email = cert.payload["principal"]["email"]
         # Check the signature on the assertion.
         if not assertion.check_signature(cert.payload["public-key"]):
             raise ValueError("invalid signature on assertion")
