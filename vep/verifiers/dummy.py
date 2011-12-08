@@ -67,6 +67,14 @@ DUMMY_G = long("""
 """.replace(" ", "").replace("\n", "").strip(), 16)
 
 
+def _hex(value):
+    """Like the builtin hex(), but without formatting guff."""
+    value = hex(value)[2:]
+    if value.endswith("L"):
+        value = value[:-1]
+    return value
+
+
 class DummyVerifier(LocalVerifier):
     """Class for generating and verifying dummy VEP identity assertions.
 
@@ -135,25 +143,39 @@ class DummyVerifier(LocalVerifier):
 
     @classmethod
     def _get_keypair(cls, hostname):
-        """Generate a dummy keypair for the given hostname."""
+        """Generate a dummy keypair for the given hostname.
+
+        This method generates a dummy DSA keypair for the given hostname.
+        It returns a tuple (pub, priv) where "pub" is a dict of values for
+        the public key, and "priv" is a DSA128Key object containing the
+        private key.  Multiple calls to this method for the same hostname
+        are guaranteed to produce the same key.
+
+        To make this work we take advantage of the fact that DSA key generation
+        is just "generate x by some random method, where 0 < x < q".  Replace
+        "some random method" with "sha1 hash of hostname" and we're all set.
+        """
+        # Use pre-agreed parameters for p, q and g.
         q = DUMMY_Q
         p = DUMMY_P
         g = DUMMY_G
-        # It's unlikely, but we must be absolutely sure x != 0.
-        # Loop to ensure it.
-        x = 0
-        while x == 0:
-            hostname += ";"
-            x = int(hashlib.sha1(hostname).hexdigest(), 16)
+        # Generate private key x by "some random method".
+        x = long(hashlib.sha1(hostname).hexdigest(), 16)
+        assert x != 0, "SHA1(hostname) is zero - what are the odds?!"
+        # Calculate public key y as usual.
         y = pow(g, x, p)
         data = {
           "algorithm": "DS",
-          "p": hex(p),
-          "q": hex(q),
-          "g": hex(g),
-          "y": hex(y),
-          "x": hex(x),
+          "p": _hex(p),
+          "q": _hex(q),
+          "g": _hex(g),
+          "y": _hex(y),
+          "x": _hex(x),
         }
         privkey = DS128Key(data)
         del data["x"]
         return data, privkey
+
+if __name__ == "__main__":
+    import sys
+    print DummyVerifier.make_assertion(*sys.argv[1:])
