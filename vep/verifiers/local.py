@@ -71,8 +71,10 @@ class LocalVerifier(object):
         self.urlopen = urlopen
         self.trusted_secondaries = trusted_secondaries
         self.public_keys = {}
-        # Emit a scary warning so that users will know
-        # this is all still pretty experimental.
+        self._emit_warning()
+
+    def _emit_warning(self):
+        """Emit a scary warning so users will know this isn't final yet."""
         msg = "The VEP certificate format has not been finalized and may "\
               "change in backwards-incompatible ways.  If you find that "\
               "the latest version of this module cannot verify a valid "\

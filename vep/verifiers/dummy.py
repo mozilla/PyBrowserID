@@ -84,6 +84,10 @@ class DummyVerifier(LocalVerifier):
     locally-generated dummy data.
     """
 
+    def _emit_warning(self):
+        # No point emitting warnings in test mode, they're just annoying.
+        pass
+
     def fetch_public_key(self, hostname):
         """Fetch the VEP public key for the given hostname.
 
