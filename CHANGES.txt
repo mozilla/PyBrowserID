@@ -1,6 +1,7 @@
-0.2.1 - 2011-12-15
+0.2.1 - 2011-12-16
 ==================
 
+ * Use M2Crypto for faster DSA operations.
  * DummyVerifier: fix hex formatting for compatability with jwcrypto.
  * DummyVerifier: don't emit FutureWarning on initialisation.
 

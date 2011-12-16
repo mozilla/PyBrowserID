@@ -126,7 +126,7 @@ class RSKey(object):
 
     def __init__(self, data):
         e = int2mpint(int(data["e"]))
-        n = int2mpint(int(data["n"]), pad=self.SIZE + 1)
+        n = int2mpint(int(data["n"]))
         self.rsa = _RSA.new_pub_key((e, n))
 
     def verify(self, signed_data, signature):
@@ -166,56 +166,48 @@ class DSKey(object):
     HASHMOD = None
 
     def __init__(self, data):
-        self.p = long(data["p"], 16)
-        self.q = long(data["q"], 16)
-        self.g = long(data["g"], 16)
-        self.y = long(data["y"], 16)
-        if "x" in data:
-            self.x = long(data["x"], 16)
-        else:
+        self.p = p = long(data["p"], 16)
+        self.q = q = long(data["q"], 16)
+        self.g = g = long(data["g"], 16)
+        self.y = y = long(data["y"], 16)
+        if "x" not in data:
             self.x = None
+            self.dsa = _DSA.load_pub_key_params(int2mpint(p), int2mpint(q),
+	                                        int2mpint(g), int2mpint(y))
+        else:
+            self.x = x = long(data["x"], 16)
+            self.dsa = _DSA.load_key_params(int2mpint(p), int2mpint(q),
+	                                    int2mpint(g), int2mpint(y),
+                                            int2mpint(x))
 
     def verify(self, signed_data, signature):
-        p, q, g, y = self.p, self.q, self.g, self.y
+        # Restore any leading zero bytes that might have been stripped.
         signature = signature.encode("hex")
         hexlength = self.BITLENGTH / 4
         signature = signature.rjust(hexlength * 2, "0")
         if len(signature) != hexlength * 2:
             return False
+        # Split the signature into "r" and "s" components.
         r = long(signature[:hexlength], 16)
         s = long(signature[hexlength:], 16)
-        if r <= 0 or r >= q:
+        if r <= 0 or r >= self.q:
             return False
-        if s <= 0 or s >= q:
+        if s <= 0 or s >= self.q:
             return False
-        w = modinv(s, q)
-        u1 = (long(self.HASHMOD(signed_data).hexdigest(), 16) * w) % q
-        u2 = (r * w) % q
-        v = ((pow(g, u1, p) * pow(y, u2, p)) % p) % q
-        return (v == r)
+        # Now we can check the digest.
+        digest = self.HASHMOD(signed_data).digest()
+        return self.dsa.verify(digest, int2mpint(r), int2mpint(s))
 
     def sign(self, data):
-        p, q, g, y, x = self.p, self.q, self.g, self.y, self.x
-        if not x:
+        if not self.x:
             raise ValueError("private key not present")
-        # We need to do lots of if-not-this-then-start-over type tests.
-        while True:
-            k = long(os.urandom(self.BITLENGTH / 8).encode("hex"), 16) % q
-            if k == 0:
-                continue
-            r = pow(g, k, p) % q
-            if r == 0:
-                continue
-            h = (long(self.HASHMOD(data).hexdigest(), 16) + (x * r)) % q
-            s = (modinv(k, q) * h) % q
-            if s == 0:
-                continue
-            break
-        assert 0 < r < q
-        assert 0 < s < q
+        digest = self.HASHMOD(data).digest()
+        r, s = self.dsa.sign(digest)
+        # We need precisely "bytelength" bytes from each integer.
+        # M2Crypto might give us more or less, so snip and pad appropriately.
         bytelength = self.BITLENGTH / 8
-        r_bytes = int2mpint(r)[4:].rjust(bytelength, "\x00")
-        s_bytes = int2mpint(s)[4:].rjust(bytelength, "\x00")
+        r_bytes = r[4:].rjust(bytelength, "\x00")[-bytelength:]
+        s_bytes = s[4:].rjust(bytelength, "\x00")[-bytelength:]
         return r_bytes + s_bytes
 
 
@@ -234,31 +226,16 @@ class DS256Key(DSKey):
 #
 
 
-def int2mpint(x, pad=None):
+def int2mpint(x):
     """Convert a Python integer into a string in OpenSSL's MPINT format."""
     # The horror...the horror...
     bytes = []
     while x:
         bytes.append(chr(x % 256))
         x = x / 256
-    if pad is not None:
-        while len(bytes) < pad:
-            bytes.append("\x00")
+    # Add an extra significant byte that's all zeros.  This helps to ensure
+    # that the resulting bignum always has the correct number of significant
+    # bits.  I don't understand why, but it does.
+    bytes.append("\x00")
     bytes.reverse()
     return struct.pack(">I", len(bytes)) + "".join(bytes)
-
-
-def modinv(a, m):
-    """Find the modular inverse of a, with modulus m."""
-    # This is a transliteration of the algorithm as it was described
-    # to me by Wikipedia, using the Extended Euclidean Algorithm.
-    x = 0
-    lastx = 1
-    y = 1
-    lasty = 0
-    b = m
-    while b != 0:
-        a, (q, b) = b, divmod(a, b)
-        x, lastx = lastx - (q * x), x
-        y, lasty = lasty - (q * y), y
-    return lastx % m
