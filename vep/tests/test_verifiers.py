@@ -35,6 +35,7 @@
 # ***** END LICENSE BLOCK *****
 
 import time
+import json
 import unittest
 import warnings
 
@@ -48,6 +49,7 @@ from vep.errors import (TrustError,
                         AudienceMismatchError)
 
 # This is an old assertion I generated on myfavoritebeer.org.
+# It's expired and signed with an old private key.
 EXPIRED_ASSERTION = """
     eyJjZXJ0aWZpY2F0ZXMiOlsiZXlKaGJHY2lPaUpTVXpJMU5pSjkuZXlKcGMzTWlPaUppY2
     05M2MyVnlhV1F1YjNKbklpd2laWGh3SWpveE16SXpPVGcyTURJM01qUXdMQ0pwWVhRaU9q
@@ -108,73 +110,11 @@ EXPIRED_ASSERTION = """
 """.replace(" ", "").replace("\n", "").strip()
 
 
-# This is an old assertion I generated on dev.myfavoritebeer.org.
-EXPIRED_ASSERTION_DEV = """
-    eyJjZXJ0aWZpY2F0ZXMiOlsiZXlKaGJHY2lPaUpFVXpJMU5pSjkuZXlKcGMzTWlPaUprWl
-    hZdVpHbHlaWE4zYjNKaUxtOXlaeUlzSW1WNGNDSTZNVE15TXprNE5UYzBOakk1T1N3aWFX
-    RjBJam94TXpJek9EazVNelEyTWprNUxDSndkV0pzYVdNdGEyVjVJanA3SW1Gc1oyOXlhWF
-    JvYlNJNklrUlRJaXdpZVNJNklqVXlaRGcyTXpZME0yRTJPRE0yWWpJM09UTXdOVGRrT1RW
-    aFlqQTBObVF5TTJGbE1UTTFabUkwTkRBNU1UQmlPVFUwTXpoa09UTXdPR1V4WkRWak56ZG
-    pNemxrWmpNMVlXVmhaVEE1T0RoaU56TTVaVFEwTnpSaVpEWmlaV0l3WW1RMFl6VmpNamd3
-    WXpjd056QTNOams1WVRrMU1qUTVaREEzTURsaVpHRXlZelUxTUdaalpESTRZbU5sTUdWak
-    1EUXdPVGN3WTJaaE1qTmlNalppTnpCaFltSmhOREE0TnpZNE9EQTVObUZrTm1FMU56WXhO
-    ekkyWkRGa01ETXlabVJpWldSak4yTTNNVGRsWldaaE1HTm1PV1l3T0RZM05XVXlaR0ZpWl
-    dJeVpqWmlOMll5Wm1FM01tWmtNbVk1T1ROaE9ERmhaV0ppT1RJNU1ESXpOMlkxT1RWa05H
-    TTRaVGRqT0RJNU5XUXdPVEZrWWpFd01qVXhZV0UyWlRCa1lUTXhPV1l5T1ROa016UTJOMk
-    5sTURFek1XSXlNak5tT0Raa1lqZ3dNelppT1daaE1tUmpZakkzWTJRNVptSTRaVFF3TURZ
-    MFpUQmxZVEkyWW1SbU5XSmtaR1kxTkdabE5qUXhZalF4WVRka01EZ3lNell5TUdZeVkySX
-    dZVGswTURka09EUmpaREZqTXpJNFl6QmlNVGhqWWpGbVl6WTBabUkzWkdWaE1UazVPVFZq
-    TkdOaFpEUTBaVE0xWVdSaE5XVXpOekk0WkdSaVl6Vm1aVEU0WXpFM1lUUTVPV1V5Wm1VMk
-    1qWXlNbVJsWldFMU4yRXpPREZoTXpsaVlUYzVOVGcyTURsbVpqVmtOR05tTnpNMVlqQXlN
-    V00yTlRGbE9HUmhNRFV6TlRZMUlpd2ljQ0k2SW1RMll6UmxOVEEwTlRZNU56YzFObU0zWV
-    RNeE1tUXdNbU15TWpnNVl6STFaRFF3WmprNU5UUXlOakZtTjJJMU9EYzJNakUwWWpaa1pq
-    RXdPV00zTXpoaU56WXlNalppTVRrNVltSTNaVE16WmpobVl6ZGhZekZrWTJNek1UWmxNV1
-    UzWXpjNE9UY3pPVFV4WW1aak5tWm1NbVV3TUdOak9UZzNZMlEzTm1aalptSXdZamhqTURB
-    NU5tSXdZalEyTUdabVptRmpPVFl3WTJFME1UTTJZekk0WmpSaVptSTFPREJrWlRRM1kyWT
-    NaVGM1TXpSak16azROV1V6WWpOa09UUXpZamMzWmpBMlpXWXlZV1l6WVdNek5EazBabU16
-    WXpabVl6UTVPREV3WVRZek9EVXpPRFl5WVRBeVltSXhZemd5TkdFd01XSTNabU0yT0RobE
-    5EQXlPRFV5TjJFMU9HRmtOVGhqT1dRMU1USTVNakkyTmpCa1lqVmtOVEExWW1NeU5qTmha
-    akk1TTJKak9UTmlZMlEyWkRnNE5XRXhOVGMxTnpsa04yWTFNamsxTWpJek5tUmtPV1F3Tm
-    1FMFptTXpZbU15TWpRM1pESXhaakZoTnpCbU5UZzBPR1ZpTURFM05qVXhNelV6TjJNNU9E
-    Tm1OV0V6Tmpjek4yWXdNV1k0TW1JME5EVTBObVU0WlRkbU1HWmhZbU0wTlRkbE0yUmxNV1
-    E1WXpWa1ltRTVOamsyTldJeE1HRXlZVEExT0RCaU1HRmtNR1k0T0RFM09XVXhNREEyTmpF
-    d04yWmlOelF6TVRSaE1EZGxOamMwTlRnMk0ySmpOemszWWpjd01ESmxZbVZqTUdJd01EQm
-    hPVGhsWWpZNU56UXhORGN3T1dGak1UZGlOREF4SWl3aWNTSTZJbUl4WlRNM01HWTJORGN5
-    WXpnM05UUmpZMlEzTldVNU9UWTJObVZqT0dWbU1XWmtOelE0WWpjME9HSmlZbU13T0RVd0
-    0yUTRNbU5sT0RBMU5XRmlNMklpTENKbklqb2lPV0U0TWpZNVlXSXlaVE5pTnpNellUVXlO
-    REl4Tnpsa09HWTRaR1JpTVRkbVpqa3pNamszWkRsbFlXSXdNRE0zTm1SaU1qRXhZVEl5WW
-    pFNVl6ZzFOR1JtWVRnd01UWTJaR1l5TVRNeVkySmpOVEZtWWpJeU5HSXdPVEEwWVdKaU1q
-    SmtZVEpqTjJJM09EVXdaamM0TWpFeU5HTmlOVGMxWWpFeE5tWTBNV1ZoTjJNMFptTTNOV0
-    l4WkRjM05USTFNakEwWTJRM1l6SXpZVEUxT1RrNU1EQTBZekl6WTJSbFlqY3lNelU1WldV
-    M05HVTRPRFpoTVdSa1pUYzROVFZoWlRBMVptVTRORGMwTkRka01HRTJPREExT1RBd01tTX
-    pPREU1WVRjMVpHTTNaR05pWWpNd1pUTTVaV1poWXpNMlpUQTNaVEpqTkRBMFlqZGpZVGs0
-    WWpJMk0ySXlOV1poTXpFMFltRTVNMk13TmpJMU56RTRZbVEwT0RsalpXRTJaREEwWW1FMF
-    lqQmlOMll4TlRabFpXSTBZelUyWXpRMFlqVXdaVFJtWWpWaVkyVTVaRGRoWlRCa05UVmlN
-    emM1TWpJMVptVmlNREl4TkdFd05HSmxaRGN5WmpNelpUQTJOalJrTWprd1pUZGpPRFF3Wk
-    dZelpUSmhZbUkxWlRRNE1UZzVabUUwWlRrd05qUTJaakU0Tmpka1lqSTRPV00yTlRZd05E
-    YzJOems1WmpkaVpUZzBNakJoTm1Sak1ERmtNRGM0WkdVME16ZG1Namd3Wm1abU1tUTNaR1
-    JtTVRJME9HUTFObVV4WVRVMFlqa3pNMkUwTVRZeU9XUTJZekkxTWprNE0yTTFPRGM1TlRF
-    d05UZ3dNbVF6TUdRM1ltTmtPREU1WTJZMlpXWWlmU3dpY0hKcGJtTnBjR0ZzSWpwN0ltVn
-    RZV2xzSWpvaWNubGhia0J5Wm1zdWFXUXVZWFVpZlgwLlRJRU1TUjRtdm5LQTZrSDROWDZa
-    Y0VFTEVDNE1oalZ4THVXR0xqMFRNSEpsNkNIb3FRdWlkalFZRkFlN3JSRHd1R2JVUDZ6aC
-    1nTHBaMVhWTkJWZ3ZnIl0sImFzc2VydGlvbiI6ImV5SmhiR2NpT2lKRVV6STFOaUo5LmV5
-    SmxlSEFpT2pFek1qTTRPVGsxTVRJeE5UZ3NJbUYxWkNJNkltaDBkSEE2THk5a1pYWXViWG
-    xtWVhadmNtbDBaV0psWlhJdWIzSm5JbjAubFZPM2NOSFNVWUxWUTUxcFRPbGRRb3RibE9P
-    ejhld0V2RVRMOE5CZGpwTjZEOGtCTXU4ZURxTHNXQjZCaHZoRFliRzk1UGZZRjM4RHNKZD
-    hLZkZyWUEifQ
-""".replace(" ", "").replace("\n", "").strip()
-
-
 class VerifierTestCases(object):
     """Generic testcases for Verifier implementations."""
 
     def test_expired_assertion(self):
-        self.assertRaises(TrustError,
-                          self.verifier.verify, EXPIRED_ASSERTION)
-
-    def test_expired_assertion_dev(self):
-        self.assertRaises(TrustError,
-                          self.verifier.verify, EXPIRED_ASSERTION_DEV)
+        self.assertRaises(TrustError, self.verifier.verify, EXPIRED_ASSERTION)
 
     def test_junk(self):
         self.assertRaises(ValueError, self.verifier.verify, "JUNK")
@@ -201,24 +141,6 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("default")
             self.verifier = LocalVerifier()
-
-    def test_expired_assertion(self):
-        super(TestLocalVerifier, self).test_expired_assertion()
-        # It'll verify OK if we wind back the clock.
-        data = self.verifier.verify(EXPIRED_ASSERTION, now=0)
-        self.assertEquals(data["audience"], "http://myfavoritebeer.org")
-        # And will fail if we give the wrong audience.
-        self.assertRaises(AudienceMismatchError,
-                          self.verifier.verify, EXPIRED_ASSERTION, "h", 0)
-
-    def test_expired_assertion_dev(self):
-        super(TestLocalVerifier, self).test_expired_assertion_dev()
-        # It'll verify OK if we wind back the clock.
-        data = self.verifier.verify(EXPIRED_ASSERTION_DEV, now=0)
-        self.assertEquals(data["audience"], "http://dev.myfavoritebeer.org")
-        # And will fail if we give the wrong audience.
-        self.assertRaises(AudienceMismatchError,
-                          self.verifier.verify, EXPIRED_ASSERTION_DEV, "h", 0)
 
     def test_error_while_fetching_public_key(self):
         def fetch_public_key(hostname):
@@ -262,21 +184,28 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         #  The browserid.org server doesn't currently have host-meta.
         #  This simulates it with a link to the known public key URL.
         called = []
-        orig_urlopen = self.verifier.urlopen
         def urlopen(url, data):
+            #  If already called, return the mock key.
             if called:
-                return orig_urlopen("https://browserid.org/pk")
+                class response(object):
+                    @staticmethod
+                    def read():
+                        key = DummyVerifier.fetch_public_key("browserid.org")
+                        return json.dumps(key)
+            #  Otherwise, return the necessary XML to link to it.
+            else:
+                class response(object):
+                    @staticmethod
+                    def read():
+                        rel = self.verifier.HOST_META_REL_PUBKEY
+                        return "<Meta>"\
+                               " <Link rel='" + rel + "' href='haha' />"\
+                               "</Meta>"
             called.append(True)
-            class response(object):
-                @staticmethod
-                def read():
-                    rel = self.verifier.HOST_META_REL_PUBKEY
-                    return "<Meta>"\
-                           " <Link rel='" + rel + "' href='haha' />"\
-                           "</Meta>"
             return response
         self.verifier.urlopen = urlopen
-        self.assertTrue(self.verifier.verify(EXPIRED_ASSERTION, now=0))
+        assertion = DummyVerifier.make_assertion("t@m.com", "http://e.com")
+        self.assertTrue(self.verifier.verify(assertion))
 
     def test_handling_of_invalid_content_length_header_from_server(self):
         def urlopen(url, data):
@@ -299,17 +228,12 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         certs = [JWT.parse(cert) for cert in certs]
         self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify_certificate_chain, certs)
-        self.assertTrue(self.verifier.verify_certificate_chain(certs, 0))
 
 
 class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
         self.verifier = RemoteVerifier()
-
-    def test_expired_assertion_dev(self):
-        self.verifier.verifier_url = "https://dev.diresworb.org/verify"
-        super(TestRemoteVerifier, self).test_expired_assertion_dev()
 
     def test_handling_of_valid_response_from_server(self):
         def urlopen(url, data):

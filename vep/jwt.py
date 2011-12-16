@@ -42,7 +42,8 @@ Utilities for dealing with Signed JSON Web Tokens.
 import os
 import struct
 import hashlib
-import M2Crypto
+from M2Crypto import RSA as _RSA
+from vep.m2_dsa_patch import DSA as _DSA
 
 from vep.utils import decode_bytes, encode_bytes
 from vep.utils import decode_json_bytes, encode_json_bytes
@@ -126,13 +127,13 @@ class RSKey(object):
     def __init__(self, data):
         e = int2mpint(int(data["e"]))
         n = int2mpint(int(data["n"]), pad=self.SIZE + 1)
-        self.rsa = M2Crypto.RSA.new_pub_key((e, n))
+        self.rsa = _RSA.new_pub_key((e, n))
 
     def verify(self, signed_data, signature):
         digest = self.HASHMOD(signed_data).digest()
         try:
             return self.rsa.verify(digest, signature, self.HASHNAME)
-        except M2Crypto.RSA.RSAError:
+        except _RSA.RSAError:
             return False
 
 

@@ -1,3 +1,10 @@
+0.2.1 - 2011-12-15
+==================
+
+ * DummyVerifier: fix hex formatting for compatability with jwcrypto.
+ * DummyVerifier: don't emit FutureWarning on initialisation.
+
+
 0.2.0 - 2011-12-07
 ==================
 

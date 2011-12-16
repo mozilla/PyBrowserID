@@ -88,14 +88,15 @@ class DummyVerifier(LocalVerifier):
         # No point emitting warnings in test mode, they're just annoying.
         pass
 
-    def fetch_public_key(self, hostname):
+    @classmethod
+    def fetch_public_key(cls, hostname):
         """Fetch the VEP public key for the given hostname.
 
         Actually, this implementation generates the key locally based on
         a hash of the hostname.  This lets us exercise all the crypto code
         while using predictable local values.
         """
-        return self._get_keypair(hostname)[0]
+        return cls._get_keypair(hostname)[0]
 
     @classmethod
     def make_assertion(cls, email, audience, issuer=None, exp=None,
