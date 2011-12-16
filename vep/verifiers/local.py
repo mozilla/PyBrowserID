@@ -79,7 +79,7 @@ class LocalVerifier(object):
               "change in backwards-incompatible ways.  If you find that "\
               "the latest version of this module cannot verify a valid "\
               "VEP assertion, please contact the author."
-        warnings.warn(msg, FutureWarning, stacklevel=2)
+        warnings.warn(msg, FutureWarning, stacklevel=3)
 
     def verify(self, assertion, audience=None, now=None):
         """Verify the given VEP assertion.
