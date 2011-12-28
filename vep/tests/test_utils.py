@@ -40,6 +40,7 @@ import threading
 import socket
 import ssl
 import json
+import warnings
 
 from vep.errors import ConnectionError
 from vep.utils import secure_urlopen, encode_bytes, decode_bytes
@@ -112,9 +113,20 @@ class TestUtils(unittest.TestCase):
         server.start()
         try:
             kwds = {"timeout": 1}
-            # We don't trust the server's certificate, so this fails.
-            self.assertRaises(ConnectionError,
-                              secure_urlopen, server.base_url, **kwds)
+            # We don't trust the server's certificate, so this fails
+            # if we're doing strong validation.
+            try:
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter("always")
+                    secure_urlopen(server.base_url, **kwds)
+            except ConnectionError:
+                # This means we have a system ca_certs file.
+                # The request is unverified and should therefore fail.
+                pass
+            else:
+                # This means we have no system ca_certs file.
+                # We issue a warning and forego verification.
+                self.assertTrue("ca_certs" in str(w[0].message))
             # The certificate doesn't belong to localhost, so this fails.
             kwds["ca_certs"] = server.certfile
             self.assertRaises(ConnectionError,

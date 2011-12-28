@@ -47,6 +47,7 @@ import base64
 import socket
 import httplib
 import urllib2
+import warnings
 from fnmatch import fnmatch
 
 from vep.errors import ConnectionError
@@ -149,7 +150,7 @@ POSSIBLE_CACERT_FILES = ["/etc/ssl/certs/ca-certificates.crt",
 _OPENER_CACHE = {}
 
 
-## We're using M2Crypto anyway, should also use it for the below?
+## TODO: We're using M2Crypto anyway, should also use it for the below?
 
 def secure_urlopen(url, data=None, timeout=None, ca_certs=None):
     """More secure replacement for urllib2.urlopen.
@@ -167,8 +168,12 @@ def secure_urlopen(url, data=None, timeout=None, ca_certs=None):
                     ca_certs = DEFAULT_CACERT_FILE = filenm
                     break
             if ca_certs is None:
-                err = "could not locate default ca_certs file"
-                raise ConnectionError(err)
+                msg = "Could not locate a CA certificates file for HTTPS."\
+                      " Your requests will be vulnerable to man-in-the-middle"\
+                      " attacks.  It is *HIGHLY RECOMMENDED* that you specify"\
+                      " the ca_certs parameter with the path to a valid"\
+                      " certificates file."
+                warnings.warn(msg, stacklevel=2)
     # Use a cached opener if possible.
     try:
         opener = _OPENER_CACHE[ca_certs]
@@ -225,8 +230,6 @@ class ValidatingHTTPSConnection(httplib.HTTPSConnection):
 
     def __init__(self, *args, **kwds):
         self.ca_certs = kwds.pop("ca_certs", None)
-        if self.ca_certs is None:
-            raise TypeError("missing keyword argument: ca_certs")
         httplib.HTTPSConnection.__init__(self, *args, **kwds)
 
     def connect(self):
@@ -235,11 +238,16 @@ class ValidatingHTTPSConnection(httplib.HTTPSConnection):
         if self._tunnel_host:
             self.sock = sock
             self._tunnel()
-        self.sock = ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_SSLv3,
-                                    cert_reqs=ssl.CERT_REQUIRED,
-                                    ca_certs=self.ca_certs)
-        cert = self.sock.getpeercert()
-        self._validate_certificate(cert)
+        kwds = {"ssl_version": ssl.PROTOCOL_SSLv3}
+        if self.ca_certs is None:
+            kwds["cert_reqs"] = ssl.CERT_NONE
+        else:
+            kwds["ca_certs"] = self.ca_certs
+            kwds["cert_reqs"] = ssl.CERT_REQUIRED
+        self.sock = ssl.wrap_socket(sock, **kwds)
+        if self.ca_certs is not None:
+            cert = self.sock.getpeercert()
+            self._validate_certificate(cert)
 
     def _validate_certificate(self, cert):
         now = time.time()
