@@ -39,7 +39,6 @@ Utilities for dealing with Signed JSON Web Tokens.
 
 """
 
-import os
 import struct
 import hashlib
 from M2Crypto import RSA as _RSA
@@ -173,11 +172,11 @@ class DSKey(object):
         if "x" not in data:
             self.x = None
             self.dsa = _DSA.load_pub_key_params(int2mpint(p), int2mpint(q),
-	                                        int2mpint(g), int2mpint(y))
+                                                int2mpint(g), int2mpint(y))
         else:
             self.x = x = long(data["x"], 16)
             self.dsa = _DSA.load_key_params(int2mpint(p), int2mpint(q),
-	                                    int2mpint(g), int2mpint(y),
+                                            int2mpint(g), int2mpint(y),
                                             int2mpint(x))
 
     def verify(self, signed_data, signature):

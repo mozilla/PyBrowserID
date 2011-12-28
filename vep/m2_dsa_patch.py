@@ -8,7 +8,6 @@
 #  We use ctypes to avoid recompiling the M2Crypto binaries.
 
 import ctypes
-import functools
 from M2Crypto import DSA, m2, __m2crypto
 
 _m2lib = ctypes.CDLL(__m2crypto.__file__)
@@ -24,7 +23,7 @@ class _DSA(ctypes.Structure):
                 ("g", ctypes.c_void_p),
                 ("pub_key", ctypes.c_void_p),
                 ("priv_key", ctypes.c_void_p)]
-                # There are many more fields, but we don't need them. 
+                # There are many more fields, but we don't need them.
 
 
 def maybe_provide(obj):

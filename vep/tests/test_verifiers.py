@@ -40,8 +40,8 @@ import unittest
 import warnings
 
 from vep import RemoteVerifier, LocalVerifier, DummyVerifier
-from vep.utils import encode_json_bytes, encode_bytes, decode_json_bytes
-from vep.jwt import JWT, load_key
+from vep.utils import encode_json_bytes, decode_json_bytes
+from vep.jwt import JWT
 from vep.errors import (TrustError,
                         ConnectionError,
                         ExpiredSignatureError,
@@ -186,7 +186,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         #  The browserid.org server doesn't currently have host-meta.
         #  This simulates it with a link to the known public key URL.
         called = []
-        def urlopen(url, data):
+        def urlopen(url, data):  # NOQA
             #  If already called, return the mock key.
             if called:
                 class response(object):
@@ -215,7 +215,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
                 @staticmethod
                 def info():
                     return {"Content-Length": "forty-two"}
-                @staticmethod
+                @staticmethod  # NOQA
                 def read(size):
                     raise RuntimeError  # pragma: nocover
             return response
@@ -256,7 +256,7 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
                 @staticmethod
                 def info():
                     return {"Content-Length": "forty-two"}
-                @staticmethod
+                @staticmethod  # NOQA
                 def read(size):
                     raise RuntimeError  # pragma: nocover
             return response

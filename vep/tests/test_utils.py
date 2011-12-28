@@ -39,7 +39,6 @@ import unittest
 import threading
 import socket
 import ssl
-import json
 import warnings
 
 from vep.errors import ConnectionError

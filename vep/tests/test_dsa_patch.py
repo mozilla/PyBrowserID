@@ -38,6 +38,7 @@ import unittest
 
 from vep.m2_dsa_patch import DSA
 
+
 class TestDSAPatch(unittest.TestCase):
 
     def test_signing_works_with_loaded_keys(self):
