@@ -138,9 +138,11 @@ class VerifierTestCases(object):
 class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("default")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             self.verifier = LocalVerifier()
+        # There should be a warning about using this verifier.
+        self.assertEquals(w[0].category, FutureWarning)
 
     def test_error_while_fetching_public_key(self):
         def fetch_public_key(hostname):
@@ -304,9 +306,11 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
 class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("default")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             self.verifier = DummyVerifier()
+        # There should be no warnings from the dummy verifier.
+        self.assertEquals(len(w), 0)
 
     def test_verification_of_valid_dummy_assertion(self):
         audience = "http://example.com"
