@@ -108,6 +108,36 @@ def encode_json_bytes(obj):
     return encode_bytes(json.dumps(obj))
 
 
+def get_assertion_info(assertion):
+    """Parse interesting information out of a BrowserID assertion.
+
+    This function decodes and parses the given BrowserID assertion, returning
+    a dict with the following items:
+
+       * principal:  the asserted identity, eg: {"email": "test@example.com"}
+       * audience:   the audience to whom it is asserted
+
+    This does *not* verify the assertion at all, it is merely a way to see
+    the information that is being asserted.  If the assertion is malformed
+    then ValueError will be raised.
+    """
+    info = {}
+    # Decode the bundled-assertion envelope.
+    try:
+        data = decode_json_bytes(assertion)
+        certificates = data["certificates"]
+        assertion = data["assertion"]
+        # Get the asserted principal out of the certificate chain.
+        payload = decode_json_bytes(certificates[-1].split(".")[1])
+        info["principal"] = payload["principal"]
+        # Get the audience out of the assertion token.
+        payload = decode_json_bytes(assertion.split(".")[1])
+        info["audience"] = payload["aud"]
+    except (TypeError, KeyError), e:
+        raise ValueError(str(e))
+    return info
+
+
 # When using secure_urlopen we search for the platform default ca-cert file.
 # This is done on-demand and the result cached in this global variable.
 DEFAULT_CACERT_FILE = None
