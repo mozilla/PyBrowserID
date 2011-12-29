@@ -35,11 +35,10 @@
 # ***** END LICENSE BLOCK *****
 
 import time
-import json
 import hashlib
 
 from vep.verifiers.local import LocalVerifier
-from vep.utils import encode_bytes
+from vep.utils import encode_bytes, bundle_certs_and_assertion
 from vep.jwt import JWT, DS128Key
 
 
@@ -100,7 +99,8 @@ class DummyVerifier(LocalVerifier):
 
     @classmethod
     def make_assertion(cls, email, audience, issuer=None, exp=None,
-                       assertion_sig=None, certificate_sig=None):
+                       assertion_sig=None, certificate_sig=None,
+                       new_style=True):
         """Generate a new dummy assertion for the given email address.
 
         This method lets you generate VEP assertions using dummy private keys.
@@ -140,11 +140,7 @@ class DummyVerifier(LocalVerifier):
             certificate = ".".join(certificate.split(".")[:-1] +
                                    [encode_bytes(certificate_sig)])
         # Combine them into a VEP bundled assertion.
-        data = {
-          "certificates": [certificate],
-          "assertion": assertion,
-        }
-        return encode_bytes(json.dumps(data))
+        return bundle_certs_and_assertion([certificate], assertion, new_style)
 
     @classmethod
     def _get_keypair(cls, hostname):

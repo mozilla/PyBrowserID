@@ -320,6 +320,15 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         self.assertRaises(AudienceMismatchError,
                           self.verifier.verify, assertion, "http://moz.com")
 
+    def test_verification_of_oldstyle_dummy_assertion(self):
+        audience = "http://example.com"
+        assertion = self.verifier.make_assertion("test@example.com", audience,
+                                                 new_style=False)
+        self.assertTrue(self.verifier.verify(assertion))
+        self.assertTrue(self.verifier.verify(assertion, audience))
+        self.assertRaises(AudienceMismatchError,
+                          self.verifier.verify, assertion, "http://moz.com")
+
     def test_verification_of_untrusted_issuer(self):
         audience = "http://example.com"
         issuer = "moz.com"

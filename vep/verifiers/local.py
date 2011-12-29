@@ -41,7 +41,7 @@ from urlparse import urljoin
 from xml.dom import minidom
 
 from vep.jwt import JWT
-from vep.utils import secure_urlopen, decode_json_bytes
+from vep.utils import secure_urlopen, unbundle_certs_and_assertion
 from vep.errors import (ConnectionError,
                         InvalidSignatureError,
                         ExpiredSignatureError,
@@ -100,19 +100,18 @@ class LocalVerifier(object):
         """
         if now is None:
             now = int(time.time() * 1000)
-        data = decode_json_bytes(assertion)
         # This catches KeyError and turns it into ValueError.
         try:
+            certificates, assertion = unbundle_certs_and_assertion(assertion)
             # Check that the assertion is usable and valid.
             # No point doing all that crypto if we're going to fail out anyway.
-            assertion = JWT.parse(data["assertion"])
+            assertion = JWT.parse(assertion)
             if audience is not None:
                 if assertion.payload["aud"] != audience:
                     raise AudienceMismatchError(assertion.payload["aud"])
             if assertion.payload["exp"] < now:
                 raise ExpiredSignatureError(assertion.payload["exp"])
             # Parse out the list of certificates.
-            certificates = data["certificates"]
             certificates = [JWT.parse(c) for c in certificates]
             # Check that the root issuer is trusted.
             # No point doing all that crypto if we're going to fail out anyway.

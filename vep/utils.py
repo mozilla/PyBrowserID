@@ -109,6 +109,40 @@ def encode_json_bytes(obj):
     return encode_bytes(json.dumps(obj))
 
 
+def bundle_certs_and_assertion(certificates, assertion, new_style=True):
+    """Bundle certificates and assertion into a single string.
+
+    This function produces a VEP "bundled assertion" that combines the
+    certificate chain and final assertion into a single string.  By default
+    it uses the "new-style" tilde-separated format; pass new_style=False to
+    use the older b64-encoded-JSON format.
+    """
+    if new_style:
+        return "~".join(certificates) + "~" + assertion
+    else:
+        return encode_json_bytes({
+          "certificates": certificates,
+          "assertion": assertion,
+        })
+
+
+def unbundle_certs_and_assertion(bundle):
+    """Unbundle certificates and assertion from a single string.
+
+    This function parse a VEP "bundled assertion" into the contained chain of
+    certificates and final assertion.  The return value is returns a tuple
+    (certificates, assertion).
+    """
+    if "~" in bundle:
+        certificates, assertion = bundle.rsplit("~", 1)
+        certificates = certificates.split("~")
+    else:
+        data = decode_json_bytes(bundle)
+        certificates = data["certificates"]
+        assertion = data["assertion"]
+    return certificates, assertion
+
+
 def get_assertion_info(assertion):
     """Parse interesting information out of a BrowserID assertion.
 
@@ -125,9 +159,7 @@ def get_assertion_info(assertion):
     info = {}
     # Decode the bundled-assertion envelope.
     try:
-        data = decode_json_bytes(assertion)
-        certificates = data["certificates"]
-        assertion = data["assertion"]
+        certificates, assertion = unbundle_certs_and_assertion(assertion)
         # Get the asserted principal out of the certificate chain.
         payload = decode_json_bytes(certificates[-1].split(".")[1])
         info["principal"] = payload["principal"]
