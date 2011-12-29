@@ -11,23 +11,33 @@ And see here for how to integrate it into your website:
 
     https://browserid.org/
 
-To just get something stable and working, it's currently recommended that you
-use the browserid.org remote verifier service to check your assertions. Do
-so like this::
+For the vast majority of deployments, you will simply want to call the "verify"
+functon to verify a given assertion::
 
-    >>> verifier = vep.RemoteVerifier()
-    >>> data = verifier.verify(BROWSERIDASSERTION, "http://mysite.com")
+    >>> data = vep.verify(BROWSERIDASSERTION, "http://mysite.com")
     >>> print data["email"]
     "test@example.com"
 
+The precise implementation of this function will change depending on the
+current recommendedations of the BrowserID team.  Currently it POSTs the
+assertion to the remote verifier services on browserid.org.
 
 For improved performance, or if you just want to live on the bleeding edge,
-you can perform verification locally like so::
+you can explicitly perform verification locally like so::
 
-    >>> verifier = vep.LocalVerifier()
-    >>> data = verifier.verify(BROWSERIDASSERTION, "http://mysite.com")
+    >>> data = vep.verify_local(BROWSERIDASSERTION, "http://mysite.com")
     >>> print data["email"]
     "test@example.com"
 
-As the Verified Email Protocol gets locked down more firmly, using the local
-verifier will become the preferred method of checking VEP identity assertions.
+Note that the details of the Verified Email Protocol are still in flux, so
+local verification might break due to incompatible changes.  As things 
+stabilise this will become the default implementation.
+
+If you have specialised needs, you can also create a "verifier" class to
+encapsulate any custom settings you may require.  For example, here is how
+to do remote verification using a custom url-opening function::
+
+    >>> verifier = vep.RemoteVerifier(urlopen=my_urlopen_func)
+    >>> data = verifier.verify_local(BROWSERIDASSERTION, "http://mysite.com")
+    >>> print data["email"]
+    "test@example.com"

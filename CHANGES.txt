@@ -3,6 +3,9 @@
 
   * Support the "new-style" VEP assertion format.  This avoids double-b64-
     encoding and generally results in smaller assertions.
+  * Add shortcut functions for verification with the default options.
+    They are vep.verify(), vep.verify_remote(), vep.verify_local(), and 
+    vep.verify_dummy().
   * Add vep.utils.get_assertion_info(), which parses useful information out
     of an assertion without actually verifying it.
   * Warn rather than fail if we can't find the CA certificates.  This will

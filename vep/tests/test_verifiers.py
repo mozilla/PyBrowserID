@@ -39,9 +39,10 @@ import json
 import unittest
 import warnings
 
+import vep
+from vep import jwt
 from vep import RemoteVerifier, LocalVerifier, DummyVerifier
 from vep.utils import encode_json_bytes, decode_json_bytes
-from vep import jwt
 from vep.errors import (TrustError,
                         ConnectionError,
                         ExpiredSignatureError,
@@ -364,3 +365,20 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
                                                  certificate_sig="CORRUPTUS")
         self.assertRaises(InvalidSignatureError,
                           self.verifier.verify, assertion)
+
+
+class TestShortcutFunctions(unittest.TestCase):
+
+    def test_shortcut(self):
+        self.assertRaises(TrustError, vep.verify, EXPIRED_ASSERTION)
+
+    def test_shortcut_remote(self):
+        self.assertRaises(TrustError, vep.verify_remote, EXPIRED_ASSERTION)
+
+    def test_shortcut_local(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            self.assertRaises(TrustError, vep.verify_local, EXPIRED_ASSERTION)
+
+    def test_shortcut_dummy(self):
+        self.assertRaises(TrustError, vep.verify_dummy, EXPIRED_ASSERTION)
