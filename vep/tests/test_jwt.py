@@ -38,27 +38,27 @@ import unittest
 
 from vep.verifiers.dummy import DummyVerifier
 from vep.utils import encode_json_bytes, encode_bytes
-from vep.jwt import JWT, load_key
+from vep import jwt
 
 
 class TestJWT(unittest.TestCase):
 
     def test_error_jwt_with_no_algorithm(self):
-        jwt = ".".join((
+        token = ".".join((
           encode_json_bytes({}),
           encode_json_bytes({}),
           encode_bytes("signature"),
         ))
-        self.assertRaises(ValueError, JWT.parse, jwt)
+        self.assertRaises(ValueError, jwt.parse, token)
 
     def test_error_jwt_with_mismatched_algorithm(self):
         pub, priv = DummyVerifier._get_keypair("TEST")
-        jwt = JWT.generate({}, priv)
-        jwt = JWT.parse(jwt)
+        token = jwt.generate({}, priv)
+        token = jwt.parse(token)
         pub["algorithm"] = "RS"
-        self.assertFalse(jwt.check_signature(pub))
+        self.assertFalse(token.check_signature(pub))
 
     def test_loading_unknown_algorithms(self):
-        self.assertRaises(ValueError, load_key, "os.unlink", {})
-        self.assertRaises(ValueError, load_key, "EG", {})
-        self.assertRaises(ValueError, load_key, "DS64", {})
+        self.assertRaises(ValueError, jwt.load_key, "os.unlink", {})
+        self.assertRaises(ValueError, jwt.load_key, "EG", {})
+        self.assertRaises(ValueError, jwt.load_key, "DS64", {})

@@ -41,7 +41,7 @@ import warnings
 
 from vep import RemoteVerifier, LocalVerifier, DummyVerifier
 from vep.utils import encode_json_bytes, decode_json_bytes
-from vep.jwt import JWT
+from vep import jwt
 from vep.errors import (TrustError,
                         ConnectionError,
                         ExpiredSignatureError,
@@ -129,7 +129,7 @@ class VerifierTestCases(object):
         # This one has no certificates
         pub, priv = DummyVerifier._get_keypair("TEST")
         assertion = encode_json_bytes({
-            "assertion": JWT.generate({"aud": "TEST"}, priv),
+            "assertion": jwt.generate({"aud": "TEST"}, priv),
             "certificates": []
         })
         self.assertRaises(errors, self.verifier.verify, assertion)
@@ -227,7 +227,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertRaises(ValueError,
                           self.verifier.verify_certificate_chain, [])
         certs = decode_json_bytes(EXPIRED_ASSERTION)["certificates"]
-        certs = [JWT.parse(cert) for cert in certs]
+        certs = [jwt.parse(cert) for cert in certs]
         self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify_certificate_chain, certs)
 

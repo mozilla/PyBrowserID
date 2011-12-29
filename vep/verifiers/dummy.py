@@ -39,7 +39,7 @@ import hashlib
 
 from vep.verifiers.local import LocalVerifier
 from vep.utils import encode_bytes, bundle_certs_and_assertion
-from vep.jwt import JWT, DS128Key
+from vep import jwt
 
 
 # These are values used to generate dummy DSA keys.
@@ -123,7 +123,7 @@ class DummyVerifier(LocalVerifier):
           "exp": exp,
           "aud": audience,
         }
-        assertion = JWT.generate(assertion, email_priv)
+        assertion = jwt.generate(assertion, email_priv)
         if assertion_sig is not None:
             assertion = ".".join(assertion.split(".")[:-1] +
                                  [encode_bytes(assertion_sig)])
@@ -135,7 +135,7 @@ class DummyVerifier(LocalVerifier):
           "principal": {"email": email},
           "public-key": email_pub,
         }
-        certificate = JWT.generate(certificate, iss_priv)
+        certificate = jwt.generate(certificate, iss_priv)
         if certificate_sig is not None:
             certificate = ".".join(certificate.split(".")[:-1] +
                                    [encode_bytes(certificate_sig)])
@@ -173,7 +173,7 @@ class DummyVerifier(LocalVerifier):
           "y": _hex(y),
           "x": _hex(x),
         }
-        privkey = DS128Key(data)
+        privkey = jwt.DS128Key(data)
         del data["x"]
         return data, privkey
 

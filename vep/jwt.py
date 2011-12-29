@@ -48,6 +48,30 @@ from vep.utils import decode_bytes, encode_bytes
 from vep.utils import decode_json_bytes, encode_json_bytes
 
 
+def parse(jwt, cls=None):
+    """Parse a JWT from a string."""
+    if cls is None:
+        cls = JWT
+    algorithm, payload, signature = jwt.split(".")
+    signed_data = algorithm + "." + payload
+    try:
+        algorithm = decode_json_bytes(algorithm)["alg"]
+    except KeyError:
+        raise ValueError("badly formed JWT")
+    payload = decode_json_bytes(payload)
+    signature = decode_bytes(signature)
+    return cls(algorithm, payload, signature, signed_data)
+
+
+def generate(payload, key):
+    """Generate and sign a JWT for a dict payload."""
+    alg = key.__class__.__name__[:-3]
+    algorithm = encode_json_bytes({"alg": alg})
+    payload = encode_json_bytes(payload)
+    signature = encode_bytes(key.sign(".".join((algorithm, payload))))
+    return ".".join((algorithm, payload, signature))
+
+
 class JWT(object):
     """Class for parsing signed JSON Web Tokens.
 
@@ -60,28 +84,6 @@ class JWT(object):
         self.payload = payload
         self.signature = signature
         self.signed_data = signed_data
-
-    @classmethod
-    def parse(cls, jwt):
-        """Parse a JWT from a string."""
-        algorithm, payload, signature = jwt.split(".")
-        signed_data = algorithm + "." + payload
-        try:
-            algorithm = decode_json_bytes(algorithm)["alg"]
-        except KeyError:
-            raise ValueError("badly formed JWT")
-        payload = decode_json_bytes(payload)
-        signature = decode_bytes(signature)
-        return cls(algorithm, payload, signature, signed_data)
-
-    @classmethod
-    def generate(cls, payload, key):
-        """Generate and sign a JWT for a dict payload."""
-        alg = key.__class__.__name__[:-3]
-        algorithm = encode_json_bytes({"alg": alg})
-        payload = encode_json_bytes(payload)
-        signature = encode_bytes(key.sign(".".join((algorithm, payload))))
-        return ".".join((algorithm, payload, signature))
 
     def check_signature(self, key_data):
         """Check that the JWT was signed with the given key."""
