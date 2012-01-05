@@ -64,8 +64,7 @@ class LocalVerifier(object):
     method and let it work its magic.
     """
 
-    HOST_META_PATH = "/.well-known/host-meta"
-    HOST_META_REL_PUBKEY = "https://browserid.org/vocab#publickey"
+    WELL_KNOWN_URL = "/.well-known/vep"
 
     def __init__(self, urlopen=None, trusted_secondaries=None, cache=None):
         if urlopen is None:
@@ -174,44 +173,41 @@ class LocalVerifier(object):
         the public key for the given hostname.
         """
         hostname = "https://" + hostname
-        # Try to read the host-meta file to find the key URL.
-        # If there's no host-meta file, just look at /pk
+        # Try to find the public key.  If it can't be found then we
+        # raise an InvalidIssuerError.  Any other connection-related
+        # errors are passed back up to the caller.
         try:
-            meta_url = urljoin(hostname, self.HOST_META_PATH)
-            meta = self._urlread(meta_url)
+            # Try to read the well-known vep file to load the key.
             try:
-                meta = minidom.parseString(meta)
-            except Exception:
-                msg = "Host %r has malformed host-meta document" % (hostname,)
-                raise InvalidIssuerError(msg)
-            for link in meta.getElementsByTagName("Link"):
-                rel = link.attributes.get("rel")
-                if rel is not None:
-                    rel = rel.value.lower()
-                    if rel is not None and rel == self.HOST_META_REL_PUBKEY:
-                        href = link.attributes.get("href")
-                        if href is not None:
-                            pubkey_url = href.value
-                            break
+                vep_url = urljoin(hostname, self.WELL_KNOWN_URL)
+                vep_data = self._urlread(vep_url)
+            except ConnectionError, e:
+                if "404" not in str(e):
+                    raise
+                # The well-known file was not found, try falling back to
+                # just "/pk".  Not really a good idea, but that's currently
+                # the only way to get browserid.org's public key.
+                pubkey_url = urljoin(hostname, "/pk")
+                key = self._urlread(urljoin(hostname, pubkey_url))
+                try:
+                    key = json.loads(key)
+                except ValueError:
+                    msg = "Host %r has malformed public key document"
+                    raise InvalidIssuerError(msg % (hostname,))
             else:
-                msg = "Host %r has no public key file" % (hostname,)
-                raise InvalidIssuerError(msg)
-        except ConnectionError, e:
-            # Since the underlying urlopen function can be replaced by the
-            # user, we've no way to explicitly extract just the status code.
-            # Assume any "Not Found" error will have "404" somewhere in it.
-            if "404" not in str(e):
-                raise
-            pubkey_url = urljoin(hostname, "/pk")
-        # Now try to read the public key from that URL.
-        try:
-            key = self._urlread(urljoin(hostname, pubkey_url))
+                # The well-known file was found, it must contain the key
+                # data as part of its JSON response.
+                try:
+                    key = json.loads(vep_data)["public-key"]
+                except (ValueError, KeyError):
+                    msg = "Host %r has malformed VEP metadata document"
+                    raise InvalidIssuerError(msg % (hostname,))
+            return key
         except ConnectionError, e:
             if "404" not in str(e):
                 raise
-            msg = "Host %r has no public key file" % (hostname,)
+            msg = "Host %r does not declare support for VEP" % (hostname,)
             raise InvalidIssuerError(msg)
-        return json.loads(key)
 
     def verify_certificate_chain(self, certificates, now=None):
         """Verify a signed chain of certificates.

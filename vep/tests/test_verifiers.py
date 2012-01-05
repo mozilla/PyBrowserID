@@ -154,59 +154,44 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertRaises(ConnectionError,
                           self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
-    def test_missing_host_meta_document(self):
+    def test_missing_well_known_document(self):
         def urlopen(url, data):
             raise RuntimeError("404 Not Found")
         self.verifier.urlopen = urlopen
         self.assertRaises(InvalidIssuerError,
                           self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
-    def test_malformed_host_meta_document(self):
+    def test_malformed_well_known_document(self):
         def urlopen(url, data):
             class response(object):
                 @staticmethod
                 def read():
-                    return "I AINT NO XML, FOOL!"
+                    return "I AINT NO JSON, FOOL!"
             return response
         self.verifier.urlopen = urlopen
         self.assertRaises(InvalidIssuerError,
                           self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
-    def test_host_meta_with_no_key_link(self):
+    def test_well_known_doc_with_no_public_key(self):
         def urlopen(url, data):
             class response(object):
                 @staticmethod
                 def read():
-                    return "<Meta>"\
-                           " <Link rel='not the key link' href='haha' />"\
-                           "</Meta>"
+                    return "{}"
             return response
         self.verifier.urlopen = urlopen
         self.assertRaises(InvalidIssuerError,
                           self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
-    def test_host_meta_with_key_link(self):
-        #  The browserid.org server doesn't currently have host-meta.
-        #  This simulates it with a link to the known public key URL.
-        called = []
+    def test_well_known_doc_with_public_key(self):
+        #  The browserid.org server doesn't currently have /.well-known/vep.
+        #  This simulates it with a dummy key.
         def urlopen(url, data):  # NOQA
-            #  If already called, return the mock key.
-            if called:
-                class response(object):
-                    @staticmethod
-                    def read():
-                        key = DummyVerifier.fetch_public_key("browserid.org")
-                        return json.dumps(key)
-            #  Otherwise, return the necessary XML to link to it.
-            else:
-                class response(object):
-                    @staticmethod
-                    def read():
-                        rel = self.verifier.HOST_META_REL_PUBKEY
-                        return "<Meta>"\
-                               " <Link rel='" + rel + "' href='haha' />"\
-                               "</Meta>"
-            called.append(True)
+            class response(object):
+                @staticmethod
+                def read():
+                    key = DummyVerifier.fetch_public_key("browserid.org")
+                    return json.dumps({"public-key": key})
             return response
         self.verifier.urlopen = urlopen
         assertion = DummyVerifier.make_assertion("t@m.com", "http://e.com")
