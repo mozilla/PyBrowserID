@@ -60,7 +60,7 @@ def decode_bytes(value):
     meaning we can't use the stdlib routines to decode them directly.  This
     is a simple wrapper that adds the padding back in.
 
-    If the value is not correctly encoded, ValueErro will be raised.
+    If the value is not correctly encoded, ValueError will be raised.
     """
     if isinstance(value, unicode):
         value = value.encode("ascii")
@@ -129,8 +129,8 @@ def bundle_certs_and_assertion(certificates, assertion, new_style=True):
 def unbundle_certs_and_assertion(bundle):
     """Unbundle certificates and assertion from a single string.
 
-    This function parse a VEP "bundled assertion" into the contained chain of
-    certificates and final assertion.  The return value is returns a tuple
+    This function parse a VEP "bundled assertion" into the contained chain
+    of certificates and final assertion.  The returned value is a tuple
     (certificates, assertion).
     """
     if "~" in bundle:
@@ -157,7 +157,6 @@ def get_assertion_info(assertion):
     then ValueError will be raised.
     """
     info = {}
-    # Decode the bundled-assertion envelope.
     try:
         certificates, assertion = unbundle_certs_and_assertion(assertion)
         # Get the asserted principal out of the certificate chain.

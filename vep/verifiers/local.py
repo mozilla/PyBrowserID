@@ -101,6 +101,8 @@ class LocalVerifier(object):
         if now is None:
             now = int(time.time() * 1000)
         # This catches KeyError and turns it into ValueError.
+        # It saves having to test for the existence of individual
+        # items in the various assertion payloads.
         try:
             certificates, assertion = unbundle_certs_and_assertion(assertion)
             # Check that the assertion is usable and valid.
@@ -144,7 +146,7 @@ class LocalVerifier(object):
         locally then it calls fetch_public_key() to retreive it.
         This function uses the well-known host meta-data file to locate and
         download the public key for the given hostname.  It keeps a cache
-        in memory to avoid hitting the internet for every check.
+        in memory to avoid hitting the network for every check.
         """
         # TODO: periodically expire the cache
         try:
