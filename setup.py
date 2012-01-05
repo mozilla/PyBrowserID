@@ -13,7 +13,7 @@ with open(os.path.join(here, 'CHANGES.txt')) as f:
 requires = ['M2Crypto']
 
 setup(name='PyVEP',
-      version='0.2.1',
+      version='0.3.0',
       description='Python library for the Verified Email Protocol',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[
