@@ -1,4 +1,4 @@
-0.3.0 - XXXX-XX-XX
+0.3.0 - 2012-01-06
 ==================
 
   * Support the "new-style" VEP assertion format.  This avoids double-b64-
@@ -10,9 +10,10 @@
     vep.verify_dummy().
   * Add vep.utils.get_assertion_info(), which parses useful information out
     of an assertion without actually verifying it.
-  * Make LocalVerifier expire cached public keys after 6 hour by default.
+  * Make LocalVerifier expire cached public keys after 6 hours by default.
   * Allow LocalVerifier to take a user-specified cache object so that public
     keys can be stored in e.g. memcached.
+  * Update to the latest issuer-key-fetch protocol (using /.well-known/vep).
   * Add InvalidIssuerError to report on invalid or untrusted issuers.
   * Clean up the internal JWT interface.  It now uses module-level functions
     rather than classmethods.
