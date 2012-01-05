@@ -75,8 +75,8 @@ def generate(payload, key):
 class JWT(object):
     """Class for parsing signed JSON Web Tokens.
 
-    To parse a JWT from a bytestring, use JTW.parse(data).  The default
-    constructor is only for internal purposes.
+    To parse a JWT from a bytestring, use the module-level parse() function.
+    This class is really only for internal purposes.
     """
 
     def __init__(self, algorithm, payload, signature, signed_data):
