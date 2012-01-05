@@ -41,6 +41,7 @@ Utilities for dealing with Signed JSON Web Tokens.
 
 import struct
 import hashlib
+from binascii import unhexlify
 from vep._m2_monkeypatch import DSA as _DSA
 from vep._m2_monkeypatch import RSA as _RSA
 
@@ -241,11 +242,12 @@ def int2mpint(x):
     # MPINT is big-endian bytes with a size prefix.
     # It's faster to go via hex encoding in C code than it is to try
     # encoding directly into binary with a python-level loop.
+    # (and hex-slice-strip seems consistently faster than using "%x" format)
     hexbytes = hex(x)[2:].rstrip("L")
     if len(hexbytes) % 2:
         hexbytes = "0" + hexbytes
-    bytes = hexbytes.decode("hex")
-    # Add an extra significant byte that's just zero.  This helps to ensure
-    # that the resulting bignum always has the correct number of significant
-    # bits.  I don't understand why, but it does.
+    bytes = unhexlify(hexbytes)
+    # Add an extra significant byte that's just zero.  I think this is only
+    # necessary if the number has its MSB, to prevent it being mistaken for
+    # a sign bit.  I do it uniformly since it's simpler and still correct.
     return struct.pack(">I", len(bytes)+1) + "\x00" + bytes
