@@ -60,6 +60,11 @@ class InvalidSignatureError(TrustError):
     pass
 
 
+class InvalidIssuerError(TrustError):
+    """Error raised when a cert is from an invalid/untrusted issuer."""
+    pass
+
+
 class ExpiredSignatureError(TrustError):
     """Error raised when PyVEP encounters an expired signature or assertion."""
     pass

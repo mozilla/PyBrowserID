@@ -37,13 +37,17 @@
 import time
 import json
 import warnings
+import collections
+import threading
 from urlparse import urljoin
 from xml.dom import minidom
 
 from vep import jwt
 from vep.utils import secure_urlopen, unbundle_certs_and_assertion
-from vep.errors import (ConnectionError,
+from vep.errors import (Error,
+                        ConnectionError,
                         InvalidSignatureError,
+                        InvalidIssuerError,
                         ExpiredSignatureError,
                         AudienceMismatchError)
 
@@ -63,14 +67,16 @@ class LocalVerifier(object):
     HOST_META_PATH = "/.well-known/host-meta"
     HOST_META_REL_PUBKEY = "https://browserid.org/vocab#publickey"
 
-    def __init__(self, urlopen=None, trusted_secondaries=None):
+    def __init__(self, urlopen=None, trusted_secondaries=None, cache=None):
         if urlopen is None:
             urlopen = secure_urlopen
         if trusted_secondaries is None:
             trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES
+        if cache is None:
+            cache = FIFOCache()
         self.urlopen = urlopen
         self.trusted_secondaries = trusted_secondaries
-        self.public_keys = {}
+        self.cached_public_keys = cache
         self._emit_warning()
 
     def _emit_warning(self):
@@ -141,34 +147,31 @@ class LocalVerifier(object):
     def get_public_key(self, hostname):
         """Get the VEP public key for the given hostname.
 
-        This method keeps a local in-memory cache of public keys, and uses
-        that to fulfill requests if possible.  If the key is not available
-        locally then it calls fetch_public_key() to retreive it.
-        This function uses the well-known host meta-data file to locate and
-        download the public key for the given hostname.  It keeps a cache
-        in memory to avoid hitting the network for every check.
+        This method keeps a cache of public keys, and uses that to fullfil
+        requests if possible.  If the key is not cached then it calls the
+        fetch_public_key() method to retreive it.
         """
-        # TODO: periodically expire the cache
         try:
-            (ok, key) = self.public_keys[hostname]
+            # Use a cached key if available.
+            (error, key) = self.cached_public_keys[hostname]
         except KeyError:
+            # Fetch the key afresh from the specified server.
+            # Cache any failures so we're not flooding bad hosts.
+            error = key = None
             try:
                 key = self.fetch_public_key(hostname)
-                ok = True
             except Exception, e:
-                key = str(e)
-                ok = False
-            self.public_keys[hostname] = (ok, key)
-        if not ok:
-            raise ConnectionError(key)
+                error = e
+            self.cached_public_keys[hostname] = (error, key)
+        if error is not None:
+            raise error
         return key
 
     def fetch_public_key(self, hostname):
         """Fetch the VEP public key for the given hostname.
 
-        This function uses the well-known host meta-data file to locate and
-        download the public key for the given hostname.  It keeps a cache
-        in memory to avoid hitting the internet for every check.
+        This function uses the well-known VEP meta-data file to extract
+        the public key for the given hostname.
         """
         hostname = "https://" + hostname
         # Try to read the host-meta file to find the key URL.
@@ -176,25 +179,38 @@ class LocalVerifier(object):
         try:
             meta_url = urljoin(hostname, self.HOST_META_PATH)
             meta = self._urlread(meta_url)
-            meta = minidom.parseString(meta)
+            try:
+                meta = minidom.parseString(meta)
+            except Exception:
+                msg = "Host %r has malformed host-meta document" % (hostname,)
+                raise InvalidIssuerError(msg)
             for link in meta.getElementsByTagName("Link"):
-                rel = link.attributes.get("rel").value.lower()
+                rel = link.attributes.get("rel")
                 if rel is not None:
-                    if rel == self.HOST_META_REL_PUBKEY:
-                        pubkey_url = link.attributes["href"].value
-                        break
+                    rel = rel.value.lower()
+                    if rel is not None and rel == self.HOST_META_REL_PUBKEY:
+                        href = link.attributes.get("href")
+                        if href is not None:
+                            pubkey_url = href.value
+                            break
             else:
-                # This will be caught by the enclosing try-except.
-                # Just like a goto...
-                raise ValueError("Host has no public key file")
-        except Exception, e:
-            # We have no guarantee what sort of error will get raised
-            # or how to find the status code from it :-(
+                msg = "Host %r has no public key file" % (hostname,)
+                raise InvalidIssuerError(msg)
+        except ConnectionError, e:
+            # Since the underlying urlopen function can be replaced by the
+            # user, we've no way to explicitly extract just the status code.
+            # Assume any "Not Found" error will have "404" somewhere in it.
             if "404" not in str(e):
                 raise
             pubkey_url = urljoin(hostname, "/pk")
-        # Now read the public key from that URL.
-        key = self._urlread(urljoin(hostname, pubkey_url))
+        # Now try to read the public key from that URL.
+        try:
+            key = self._urlread(urljoin(hostname, pubkey_url))
+        except ConnectionError, e:
+            if "404" not in str(e):
+                raise
+            msg = "Host %r has no public key file" % (hostname,)
+            raise InvalidIssuerError(msg)
         return json.loads(key)
 
     def verify_certificate_chain(self, certificates, now=None):
@@ -224,17 +240,112 @@ class LocalVerifier(object):
 
     def _urlread(self, url, data=None):
         """Read the given URL, return response as a string."""
-        resp = self.urlopen(url, data)
+        # Anything that goes wrong inside this function will
+        # be re-raised as an instance of ConnectionError.
         try:
-            info = resp.info()
-        except AttributeError:
-            info = {}
-        content_length = info.get("Content-Length")
-        if content_length is None:
-            data = resp.read()
-        else:
+            resp = self.urlopen(url, data)
             try:
-                data = resp.read(int(content_length))
-            except ValueError:
-                raise ConnectionError("server sent invalid content-length")
+                info = resp.info()
+            except AttributeError:
+                info = {}
+            content_length = info.get("Content-Length")
+            if content_length is None:
+                data = resp.read()
+            else:
+                try:
+                    data = resp.read(int(content_length))
+                except ValueError:
+                    raise ConnectionError("server sent invalid content-length")
+        except Exception, e:
+            raise ConnectionError(str(e))
         return data
+
+
+class FIFOCache(object):
+    """A simple in-memory FIFO cache for VEP public keys.
+
+    This is a *very* simple in-memory FIFO cache, used as the default object
+    for caching VEP public keys in the LocalVerifier.  Items are kept for
+    'cache_timeout' seconds before being evicted from the cache.  If the
+    'max_size' argument is not None and the cache grows above this size,
+    items will be evicted early in order of insertion into the cache.
+
+    (An LFU cache would be better but that's a whole lot more work...)
+    """
+
+    def __init__(self, cache_timeout=60 * 60, max_size=1000):
+        self.cache_timeout = cache_timeout
+        self.max_size = max_size
+        self.items_map = {}
+        self.items_queue = collections.deque()
+        self._lock = threading.Lock()
+
+    def __getitem__(self, key):
+        """Lookup the given key in the cache.
+
+        This method retrieves the value cached under the given key, evicting
+        it from the cache if expired.
+        """
+        (timestamp, value) = self.items_map[key]
+        if self.cache_timeout:
+            expiry_time = timestamp + self.cache_timeout
+            if expiry_time < time.time():
+                # Lock the cache while evicting, and double-check that
+                # it hasn't been updated by another thread in the meantime.
+                # This is a little more work during eviction, but it means we
+                # can avoid locking in the common case of non-expired items.
+                self._lock.acquire()
+                try:
+                    if self.items_map[key][0] == timestamp:
+                        # Just delete it from items_map.  Trying to find
+                        # and remove it from items_queue would be expensive,
+                        # so we count on a subsequent write to clean it up.
+                        del self.items_map[key]
+                except KeyError:
+                    pass
+                finally:
+                    self._lock.release()
+                    raise KeyError(key)
+        return value
+
+    def __setitem__(self, key, value):
+        """Cache the given value under the given key.
+
+        This method caches the given value under the given key, checking that
+        there's enough room in the cache and evicting items if necessary.
+        """
+        now = time.time()
+        with self._lock:
+            # First we need to make sure there's enough room.
+            # This is a great opportunity to evict any expired items,
+            # helping to keep memory small for sparse caches.
+            if self.cache_timeout:
+                expiry_time = now - self.cache_timeout
+                while self.items_queue:
+                    (e_key, e_item) = self.items_queue[0]
+                    if e_item[0] >= expiry_time:
+                        break
+                    self.items_queue.popleft()
+                    if self.items_map.get(e_key) == e_item:
+                        del self.items_map[e_key]
+            # If the max size has been exceeded, evict things in time order.
+            if self.max_size:
+                while len(self.items_map) >= self.max_size:
+                    (e_key, e_item) = self.items_queue.popleft()
+                    if self.items_map.get(e_key) == e_item:
+                        del self.items_map[e_key]
+            # Now we can store the incoming item.
+            item = (now, value)
+            self.items_queue.append((key, item))
+            self.items_map[key] = item
+
+    def __delitem__(self, key):
+        """Remove the given key from the cache."""
+        # This is a lazy delete.  Removing it from items_map means it
+        # wont be found by __get__, and the entry in items_queue will
+        # get cleaned up when its expiry time rolls around.
+        del self.items_map[key]
+
+    def __len__(self):
+        """Get the currently number of items in the cache."""
+        return len(self.items_map)

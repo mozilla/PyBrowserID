@@ -42,11 +42,13 @@ import warnings
 import vep
 from vep import jwt
 from vep import RemoteVerifier, LocalVerifier, DummyVerifier
+from vep.verifiers.local import FIFOCache
 from vep.utils import encode_json_bytes, decode_json_bytes
 from vep.errors import (TrustError,
                         ConnectionError,
                         ExpiredSignatureError,
                         InvalidSignatureError,
+                        InvalidIssuerError,
                         AudienceMismatchError)
 
 # This is an old assertion I generated on myfavoritebeer.org.
@@ -146,9 +148,9 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertEquals(w[0].category, FutureWarning)
 
     def test_error_while_fetching_public_key(self):
-        def fetch_public_key(hostname):
+        def urlopen(*args, **kwds):
             raise RuntimeError("TESTING")
-        self.verifier.fetch_public_key = fetch_public_key
+        self.verifier.urlopen = urlopen
         self.assertRaises(ConnectionError,
                           self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
@@ -156,7 +158,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         def urlopen(url, data):
             raise RuntimeError("404 Not Found")
         self.verifier.urlopen = urlopen
-        self.assertRaises(ConnectionError,
+        self.assertRaises(InvalidIssuerError,
                           self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_malformed_host_meta_document(self):
@@ -167,7 +169,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
                     return "I AINT NO XML, FOOL!"
             return response
         self.verifier.urlopen = urlopen
-        self.assertRaises(ConnectionError,
+        self.assertRaises(InvalidIssuerError,
                           self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_host_meta_with_no_key_link(self):
@@ -180,7 +182,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
                            "</Meta>"
             return response
         self.verifier.urlopen = urlopen
-        self.assertRaises(ConnectionError,
+        self.assertRaises(InvalidIssuerError,
                           self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_host_meta_with_key_link(self):
@@ -365,6 +367,43 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
                                                  certificate_sig="CORRUPTUS")
         self.assertRaises(InvalidSignatureError,
                           self.verifier.verify, assertion)
+
+    def test_cache_eviction_based_on_time(self):
+        cache = FIFOCache(cache_timeout=0.1)
+        verifier = DummyVerifier(cache=cache)
+        # Prime the cache by verifying an assertion.
+        assertion = self.verifier.make_assertion("test@example.com", "")
+        self.assertTrue(verifier.verify(assertion))
+        # Make it error out if re-fetching the keys
+        def fetch_public_key(hostname):
+            raise RuntimeError("key fetch disabled")
+        verifier.fetch_public_key = fetch_public_key
+        # It should be in the cache, so this works fine.
+        verifier.verify(assertion)
+        # But after sleeping it gets evicted and the error is triggered.
+        time.sleep(0.1)
+        self.assertRaises(RuntimeError, verifier.verify, assertion)
+
+    def test_cache_eviction_based_on_size(self):
+        cache = FIFOCache(max_size=2)
+        verifier = DummyVerifier(cache=cache)
+        # Prime the cache by verifying some assertions.
+        assertion1 = self.verifier.make_assertion("test@1.com", "", "1.com")
+        self.assertTrue(verifier.verify(assertion1))
+        assertion2 = self.verifier.make_assertion("test@2.com", "", "2.com")
+        self.assertTrue(verifier.verify(assertion2))
+        self.assertEquals(len(cache), 2)
+        # Hitting a third host should evict the first public key.
+        assertion3 = self.verifier.make_assertion("test@3.com", "", "3.com")
+        self.assertTrue(verifier.verify(assertion3))
+        self.assertEquals(len(cache), 2)
+        # Make it error out if re-fetching any keys
+        def fetch_public_key(hostname):
+            raise RuntimeError("key fetch disabled")
+        verifier.fetch_public_key = fetch_public_key
+        # It should have to re-fetch for 1, but not 2.
+        self.assertTrue(verifier.verify(assertion2))
+        self.assertRaises(RuntimeError, verifier.verify, assertion1)
 
 
 class TestShortcutFunctions(unittest.TestCase):

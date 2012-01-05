@@ -3,13 +3,17 @@
 
   * Support the "new-style" VEP assertion format.  This avoids double-b64-
     encoding and generally results in smaller assertions.
+  * Warn rather than fail if we can't find the CA certificates.  This will
+    help new users get up and running more easily.
   * Add shortcut functions for verification with the default options.
     They are vep.verify(), vep.verify_remote(), vep.verify_local(), and 
     vep.verify_dummy().
   * Add vep.utils.get_assertion_info(), which parses useful information out
     of an assertion without actually verifying it.
-  * Warn rather than fail if we can't find the CA certificates.  This will
-    help new users get up and running more easily.
+  * Make LocalVerifier expire cached public keys after 6 hour by default.
+  * Allow LocalVerifier to take a user-specified cache object so that public
+    keys can be stored in e.g. memcached.
+  * Add InvalidIssuerError to report on invalid or untrusted issuers.
   * Clean up the internal JWT interface.  It now uses module-level functions
     rather than classmethods.
 
