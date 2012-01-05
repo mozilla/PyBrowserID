@@ -239,14 +239,13 @@ class DS256Key(DSKey):
 def int2mpint(x):
     """Convert a Python long integer to a string in OpenSSL's MPINT format."""
     # MPINT is big-endian bytes with a size prefix.
-    # The horror...the horror...
-    bytes = []
-    while x:
-        bytes.append(chr(x % 256))
-        x = x / 256
-    # Add an extra significant byte that's all zeros.  This helps to ensure
+    # It's faster to go via hex encoding in C code than it is to try
+    # encoding directly into binary with a python-level loop.
+    hexbytes = hex(x)[2:].rstrip("L")
+    if len(hexbytes) % 2:
+        hexbytes = "0" + hexbytes
+    bytes = hexbytes.decode("hex")
+    # Add an extra significant byte that's just zero.  This helps to ensure
     # that the resulting bignum always has the correct number of significant
     # bits.  I don't understand why, but it does.
-    bytes.append("\x00")
-    bytes.reverse()
-    return struct.pack(">I", len(bytes)) + "".join(bytes)
+    return struct.pack(">I", len(bytes)+1) + "\x00" + bytes
