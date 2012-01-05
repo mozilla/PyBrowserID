@@ -172,6 +172,23 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertRaises(InvalidIssuerError,
                           self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
+    def test_malformed_pub_key_document(self):
+        called = []
+        def urlopen(url, data):
+            # First call must raise 404 so it will look for /pk.
+            # Second call must return invalid JSON.
+            class response(object):
+                @staticmethod
+                def read():
+                    if not called:
+                        called.append(True)
+                        raise ValueError("404 Not Found")
+                    return "I AINT NO JSON, FOOL!"
+            return response
+        self.verifier.urlopen = urlopen
+        self.assertRaises(InvalidIssuerError,
+                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
     def test_well_known_doc_with_no_public_key(self):
         def urlopen(url, data):
             class response(object):
@@ -387,6 +404,26 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
             raise RuntimeError("key fetch disabled")
         verifier.fetch_public_key = fetch_public_key
         # It should have to re-fetch for 1, but not 2.
+        self.assertTrue(verifier.verify(assertion2))
+        self.assertRaises(RuntimeError, verifier.verify, assertion1)
+
+    def test_cache_eviction_during_write(self):
+        cache = FIFOCache(cache_timeout=0.1)
+        verifier = DummyVerifier(cache=cache)
+        # Prime the cache by verifying an assertion.
+        assertion1 = self.verifier.make_assertion("test@1.com", "", "1.com")
+        self.assertTrue(verifier.verify(assertion1))
+        self.assertEquals(len(cache), 1)
+        # Let that cached key expire
+        time.sleep(0.1)
+        # Now grab a different key; caching it should purge the expired key.
+        assertion2 = self.verifier.make_assertion("test@2.com", "", "2.com")
+        self.assertTrue(verifier.verify(assertion2))
+        self.assertEquals(len(cache), 1)
+        # Check that only the second entry is in cache.
+        def fetch_public_key(hostname):
+            raise RuntimeError("key fetch disabled")
+        verifier.fetch_public_key = fetch_public_key
         self.assertTrue(verifier.verify(assertion2))
         self.assertRaises(RuntimeError, verifier.verify, assertion1)
 

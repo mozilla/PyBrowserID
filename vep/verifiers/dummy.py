@@ -178,5 +178,5 @@ class DummyVerifier(LocalVerifier):
         return data, privkey
 
 if __name__ == "__main__":
-    import sys
-    print DummyVerifier.make_assertion(*sys.argv[1:])
+    import sys  # pragma: nocover
+    print DummyVerifier.make_assertion(*sys.argv[1:])  # pragma: nocover

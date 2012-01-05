@@ -1,16 +1,28 @@
 #
-#  This monkey-patches M2Crypto's DSA support to provide a method
-#  for creating a key from given parameters.  It's based on the
-#  following patch from the M2Crypt bugtracker:
+#  This monkey-patches M2Crypto's RSA and DSA support to allow us
+#  to create keys directly from a given set of parameters.  It's
+#  It's based on the following patch from the M2Crypt bugtracker:
 #
 #      https://bugzilla.osafoundation.org/show_bug.cgi?id=12981
 #
 #  We use ctypes to avoid recompiling the M2Crypto binaries.
 
 import ctypes
-from M2Crypto import DSA, m2, __m2crypto
+from M2Crypto import RSA, DSA, m2, __m2crypto
 
 _m2lib = ctypes.CDLL(__m2crypto.__file__)
+
+
+class _RSA(ctypes.Structure):
+    """OpenSSL struct representing a RSA key (struct rsa_st)."""
+    _fields_ = [("pad", ctypes.c_int),
+                ("version", ctypes.c_long),
+                ("RSA_METHOD", ctypes.c_void_p),
+                ("ENGINE", ctypes.c_void_p),
+                ("n", ctypes.c_void_p),
+                ("e", ctypes.c_void_p),
+                ("d", ctypes.c_void_p)]
+                # There are many more fields, but we don't need them.
 
 
 class _DSA(ctypes.Structure):
@@ -36,6 +48,18 @@ def maybe_provide(obj):
 
 
 @maybe_provide(m2)
+def rsa_set_d(rsa, value):
+    """Set the private-key component "d" of a RSA object."""
+    bn = _m2lib.BN_mpi2bn(value, len(value), None)
+    if not bn:
+        raise RSA.RSAError("invalid private key data")
+    rsa_p = ctypes.cast(ctypes.c_void_p(int(rsa)), ctypes.POINTER(_RSA))
+    if rsa_p.contents.d:
+        _m2lib.BN_free(rsa_p.contents.d)
+    rsa_p.contents.d = bn
+
+
+@maybe_provide(m2)
 def dsa_set_pub(dsa, value):
     """Set the public-key component of a DSA object."""
     bn = _m2lib.BN_mpi2bn(value, len(value), None)
@@ -57,6 +81,16 @@ def dsa_set_priv(dsa, value):
     if dsa_p.contents.priv_key:
         _m2lib.BN_free(dsa_p.contents.priv_key)
     dsa_p.contents.priv_key = bn
+
+
+@maybe_provide(RSA)
+def new_key((e, n, d)):
+    """Create a RSA object from the given parameters."""
+    rsa = m2.rsa_new()
+    m2.rsa_set_e(rsa, e)
+    m2.rsa_set_n(rsa, n)
+    m2.rsa_set_d(rsa, d)
+    return RSA.RSA(rsa, 1)
 
 
 @maybe_provide(DSA)

@@ -41,8 +41,8 @@ Utilities for dealing with Signed JSON Web Tokens.
 
 import struct
 import hashlib
-from M2Crypto import RSA as _RSA
-from vep.m2_dsa_patch import DSA as _DSA
+from vep._m2_monkeypatch import DSA as _DSA
+from vep._m2_monkeypatch import RSA as _RSA
 
 from vep.utils import decode_bytes, encode_bytes
 from vep.utils import decode_json_bytes, encode_json_bytes
@@ -110,10 +110,10 @@ class Key(object):
     """Generic base class for Key objects."""
 
     def verify(self, signed_data, signature):
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: nocover
 
     def sign(self, data):
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: nocover
 
 
 #
@@ -128,7 +128,12 @@ class RSKey(object):
     def __init__(self, data):
         e = int2mpint(int(data["e"]))
         n = int2mpint(int(data["n"]))
-        self.rsa = _RSA.new_pub_key((e, n))
+        try:
+            d = int2mpint(int(data["d"]))
+        except KeyError:
+            self.rsa = _RSA.new_pub_key((e, n))
+        else:
+            self.rsa = _RSA.new_key((e, n, d))
 
     def verify(self, signed_data, signature):
         digest = self.HASHMOD(signed_data).digest()
@@ -136,6 +141,10 @@ class RSKey(object):
             return self.rsa.verify(digest, signature, self.HASHNAME)
         except _RSA.RSAError:
             return False
+
+    def sign(self, data):
+        digest = self.HASHMOD(data).digest()
+        return self.rsa.sign(digest, self.HASHNAME)
 
 
 class RS64Key(RSKey):
@@ -157,8 +166,8 @@ class RS256Key(RSKey):
 
 
 #
-#  DSA keys, implemented by hand because I haven't figured out how to
-#  map what M2Crypto provides onto what the browserid.org server does.
+#  DSA keys, implemented using the DSA support in M2Crypto, along with
+#  some formatting tweaks to match what the browserid node-js server does.
 #
 
 class DSKey(object):
@@ -228,7 +237,8 @@ class DS256Key(DSKey):
 
 
 def int2mpint(x):
-    """Convert a Python integer into a string in OpenSSL's MPINT format."""
+    """Convert a Python long integer to a string in OpenSSL's MPINT format."""
+    # MPINT is big-endian bytes with a size prefix.
     # The horror...the horror...
     bytes = []
     while x:

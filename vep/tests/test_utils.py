@@ -125,7 +125,7 @@ class TestUtils(unittest.TestCase):
             else:
                 # This means we have no system ca_certs file.
                 # We issue a warning and forego verification.
-                self.assertTrue("ca_certs" in str(w[0].message))
+                self.assertEquals(len(w), 1)  # pragma: nocover
             # The certificate doesn't belong to localhost, so this fails.
             kwds["ca_certs"] = server.certfile
             self.assertRaises(ConnectionError,
