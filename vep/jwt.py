@@ -248,6 +248,6 @@ def int2mpint(x):
         hexbytes = "0" + hexbytes
     bytes = unhexlify(hexbytes)
     # Add an extra significant byte that's just zero.  I think this is only
-    # necessary if the number has its MSB, to prevent it being mistaken for
-    # a sign bit.  I do it uniformly since it's simpler and still correct.
+    # necessary if the number has its MSB set, to prevent it being mistaken
+    # for a sign bit.  I do it uniformly since it's valid and simpler.
     return struct.pack(">I", len(bytes)+1) + "\x00" + bytes
