@@ -1,3 +1,10 @@
+0.3.1 - XXXX-XX-XX
+==================
+
+  * Update the audience-extraction code in RemoteVerifier to support the
+    new-style assertion format.
+
+
 0.3.0 - 2012-01-06
 ==================
 

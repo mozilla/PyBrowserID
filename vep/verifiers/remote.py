@@ -36,7 +36,9 @@
 
 import json
 
-from vep.utils import secure_urlopen, decode_json_bytes
+from vep.utils import (secure_urlopen,
+                       decode_json_bytes,
+                       unbundle_certs_and_assertion)
 from vep.errors import (InvalidSignatureError,
                         ConnectionError,
                         AudienceMismatchError)
@@ -80,7 +82,7 @@ class RemoteVerifier(object):
         # Read audience from assertion if not specified.
         if audience is None:
             try:
-                token = decode_json_bytes(assertion)["assertion"]
+                _, token = unbundle_certs_and_assertion(assertion)
                 audience = decode_json_bytes(token.split(".")[1])["aud"]
             except (KeyError, IndexError):
                 raise ValueError("Malformed JWT")
