@@ -43,6 +43,7 @@ import vep
 from vep import jwt
 from vep import RemoteVerifier, LocalVerifier, DummyVerifier
 from vep.verifiers.local import FIFOCache
+from vep.verifiers.workerpool import WorkerPoolVerifier
 from vep.utils import encode_json_bytes, decode_json_bytes
 from vep.errors import (TrustError,
                         ConnectionError,
@@ -426,6 +427,16 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         verifier.fetch_public_key = fetch_public_key
         self.assertTrue(verifier.verify(assertion2))
         self.assertRaises(RuntimeError, verifier.verify, assertion1)
+
+
+class TestWorkerPoolVerifier(TestDummyVerifier):
+
+    def setUp(self):
+        self.verifier = WorkerPoolVerifier(verifier=DummyVerifier())
+        self.verifier.make_assertion = self.verifier.verifier.make_assertion
+
+    def tearDown(self):
+        self.verifier.close()
 
 
 class TestShortcutFunctions(unittest.TestCase):
