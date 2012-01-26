@@ -39,6 +39,7 @@ import unittest
 from vep.jwt import int2mpint
 import vep._m2_monkeypatch as _m2
 
+
 # Dummy RSA key for testing purposes.
 def _long(value):
     return long(value.replace(" ", "").replace("\n", "").strip())
@@ -58,7 +59,6 @@ DUMMY_RSA_D = _long("""295278123166626215026113502482091502365034141401240
                     64114133156747686886305629893015763517873L""")
 
 
-
 class TestM2MonkeyPatch(unittest.TestCase):
 
     def test_setting_invalid_data_on_dsa_key(self):
@@ -76,7 +76,7 @@ class TestM2MonkeyPatch(unittest.TestCase):
         _m2.rsa_set_d(k.rsa, int2mpint(DUMMY_RSA_D))
         self.assertRaises(_m2.RSA.RSAError, _m2.rsa_set_d, k.rsa, "\x00")
         self.assertTrue(k.verify("hello", k.sign("hello")))
-    
+
     def test_dsa_signing_works_with_loaded_keys(self):
         d_orig = _m2.DSA.gen_params(512)
         d_orig.gen_key()

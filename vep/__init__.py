@@ -79,8 +79,8 @@ def verify_remote(assertion, audience=None):
     """Verify the given VEP assertion by posting to the remote verifier.
 
     This is a convenience wrapper that uses the RemoteVerifier class in its
-    default configuration.  If you have more particular needs, create your own
-    instance of RemoteVerifier and use its verify() methd.
+    default configuration. If you have more particular needs, create your own
+    instance of RemoteVerifier and use its verify() method.
     """
     global _DEFAULT_REMOTE_VERIFIER
     if _DEFAULT_REMOTE_VERIFIER is None:
@@ -92,8 +92,8 @@ def verify_local(assertion, audience=None):
     """Verify the given VEP assertion by doing local certificate checking.
 
     This is a convenience wrapper that uses the LocalVerifier class in its
-    default configuration.  If you have more particular needs, create your own
-    instance of LocalVerifier and use its verify() methd.
+    default configuration. If you have more particular needs, create your own
+    instance of LocalVerifier and use its verify() method.
     """
     global _DEFAULT_LOCAL_VERIFIER
     if _DEFAULT_LOCAL_VERIFIER is None:
@@ -105,8 +105,8 @@ def verify_dummy(assertion, audience=None):
     """Verify the given VEP assertion as a dummy assertion.
 
     This is a convenience wrapper that uses the DummyVerifier class in its
-    default configuration.  If you have more particular needs, create your own
-    instance of DummyVerifier and use its verify() methd.
+    default configuration. If you have more particular needs, create your own
+    instance of DummyVerifier and use its verify() method.
     """
     global _DEFAULT_DUMMY_VERIFIER
     if _DEFAULT_DUMMY_VERIFIER is None:
