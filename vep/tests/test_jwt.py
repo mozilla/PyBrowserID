@@ -36,8 +36,6 @@
 
 import unittest
 
-from M2Crypto import RSA, DSA
-
 from vep.verifiers.dummy import DummyVerifier
 from vep.utils import encode_json_bytes, encode_bytes
 from vep import jwt
@@ -121,8 +119,8 @@ class TestJWT(unittest.TestCase):
         self.assertRaises(Exception, pubkey.sign, "hello")
         # And it should gracefully handle a variety of stupid input:
         #   - signature too long
-        self.assertFalse(pubkey.verify("HELLO", "X"*100))
+        self.assertFalse(pubkey.verify("HELLO", "X" * 100))
         #   - "r" value too large
-        self.assertFalse(pubkey.verify("HELLO", ("\xFF"*20) + "\x01"*20))
+        self.assertFalse(pubkey.verify("HELLO", ("\xFF" * 20) + "\x01" * 20))
         #   - "s" value too large
-        self.assertFalse(pubkey.verify("HELLO", "\x01" + ("\xFF"*20)))
+        self.assertFalse(pubkey.verify("HELLO", "\x01" + ("\xFF" * 20)))

@@ -175,6 +175,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
 
     def test_malformed_pub_key_document(self):
         called = []
+
         def urlopen(url, data):
             # First call must raise 404 so it will look for /pk.
             # Second call must return invalid JSON.
@@ -378,8 +379,10 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         assertion = self.verifier.make_assertion("test@example.com", "")
         self.assertTrue(verifier.verify(assertion))
         # Make it error out if re-fetching the keys
+
         def fetch_public_key(hostname):
             raise RuntimeError("key fetch disabled")
+
         verifier.fetch_public_key = fetch_public_key
         # It should be in the cache, so this works fine.
         verifier.verify(assertion)
@@ -401,8 +404,10 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         self.assertTrue(verifier.verify(assertion3))
         self.assertEquals(len(cache), 2)
         # Make it error out if re-fetching any keys
+
         def fetch_public_key(hostname):
             raise RuntimeError("key fetch disabled")
+
         verifier.fetch_public_key = fetch_public_key
         # It should have to re-fetch for 1, but not 2.
         self.assertTrue(verifier.verify(assertion2))
@@ -422,8 +427,10 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         self.assertTrue(verifier.verify(assertion2))
         self.assertEquals(len(cache), 1)
         # Check that only the second entry is in cache.
+
         def fetch_public_key(hostname):
             raise RuntimeError("key fetch disabled")
+
         verifier.fetch_public_key = fetch_public_key
         self.assertTrue(verifier.verify(assertion2))
         self.assertRaises(RuntimeError, verifier.verify, assertion1)

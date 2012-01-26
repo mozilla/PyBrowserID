@@ -40,12 +40,10 @@ import warnings
 import collections
 import threading
 from urlparse import urljoin
-from xml.dom import minidom
 
 from vep import jwt
 from vep.utils import secure_urlopen, unbundle_certs_and_assertion
-from vep.errors import (Error,
-                        ConnectionError,
+from vep.errors import (ConnectionError,
                         InvalidSignatureError,
                         InvalidIssuerError,
                         ExpiredSignatureError,
