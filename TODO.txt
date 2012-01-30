@@ -1,5 +1,5 @@
 
- * ability t switch on/off trust of primaries
+ * ability to switch on/off trust of primaries
  * delegation of authority for a domain
  * allow connecting to http://<host>/.well-known/vep?
 
