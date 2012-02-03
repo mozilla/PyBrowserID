@@ -13,6 +13,11 @@ from M2Crypto import RSA, DSA, m2, __m2crypto
 _m2lib = ctypes.CDLL(__m2crypto.__file__)
 
 
+_m2lib.BN_free.argtypes = (ctypes.c_void_p,)
+_m2lib.BN_mpi2bn.argtypes = (ctypes.c_char_p, ctypes.c_int, ctypes.c_void_p,)
+_m2lib.BN_mpi2bn.restype = ctypes.c_void_p
+
+
 class _RSA(ctypes.Structure):
     """OpenSSL struct representing a RSA key (struct rsa_st)."""
     _fields_ = [("pad", ctypes.c_int),
@@ -76,7 +81,7 @@ def dsa_set_priv(dsa, value):
     """Set the private-key component of a DSA object."""
     bn = _m2lib.BN_mpi2bn(value, len(value), None)
     if not bn:
-        raise DSA.DSAError("invalid public key data")
+        raise DSA.DSAError("invalid private key data")
     dsa_p = ctypes.cast(ctypes.c_void_p(int(dsa)), ctypes.POINTER(_DSA))
     if dsa_p.contents.priv_key:
         _m2lib.BN_free(dsa_p.contents.priv_key)

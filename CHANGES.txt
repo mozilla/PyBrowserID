@@ -1,6 +1,7 @@
 0.3.2 - XXXX-XX-XX
 ==================
 
+  * Fix segfaults on OSX.
   * Update license to MPL 2.0.
 
 
