@@ -13,11 +13,13 @@ with open(os.path.join(here, 'CHANGES.txt')) as f:
 requires = ['M2Crypto']
 
 setup(name='PyVEP',
-      version='0.3.1',
+      version='0.3.2',
       description='Python library for the Verified Email Protocol',
       long_description=README + '\n\n' + CHANGES,
+      license='MPLv2.0',
       classifiers=[
         "Programming Language :: Python",
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
         ],
       author='Mozilla Identity Team',
       author_email='dev-identity@lists.mozilla.org',
