@@ -43,6 +43,10 @@ class LocalVerifier(object):
         self.trusted_secondaries = trusted_secondaries
         self.cached_public_keys = cache
         self._emit_warning()
+        self.jwtparser = self._get_jwt_parser()
+
+    def _get_jwt_parser(self):
+        return jwt.parse
 
     def _emit_warning(self):
         """Emit a scary warning so users will know this isn't final yet."""
@@ -78,14 +82,14 @@ class LocalVerifier(object):
             certificates, assertion = unbundle_certs_and_assertion(assertion)
             # Check that the assertion is usable and valid.
             # No point doing all that crypto if we're going to fail out anyway.
-            assertion = jwt.parse(assertion)
+            assertion = self.jwtparser(assertion)
             if audience is not None:
                 if assertion.payload["aud"] != audience:
                     raise AudienceMismatchError(assertion.payload["aud"])
             if assertion.payload["exp"] < now:
                 raise ExpiredSignatureError(assertion.payload["exp"])
             # Parse out the list of certificates.
-            certificates = [jwt.parse(c) for c in certificates]
+            certificates = [self.jwtparser(c) for c in certificates]
             # Check that the root issuer is trusted.
             # No point doing all that crypto if we're going to fail out anyway.
             email = certificates[-1].payload["principal"]["email"]
