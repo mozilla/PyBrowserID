@@ -414,18 +414,7 @@ class TestWorkerPoolVerifier(TestDummyVerifier):
         self.verifier.close()
 
 
-class TestShortcutFunctions(unittest.TestCase):
+class TestShortcutFunction(unittest.TestCase):
 
     def test_shortcut(self):
         self.assertRaises(TrustError, vep.verify, EXPIRED_ASSERTION)
-
-    def test_shortcut_remote(self):
-        self.assertRaises(TrustError, vep.verify_remote, EXPIRED_ASSERTION)
-
-    def test_shortcut_local(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("always")
-            self.assertRaises(TrustError, vep.verify_local, EXPIRED_ASSERTION)
-
-    def test_shortcut_dummy(self):
-        self.assertRaises(TrustError, vep.verify_dummy, EXPIRED_ASSERTION)

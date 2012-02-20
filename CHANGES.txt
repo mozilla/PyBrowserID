@@ -1,3 +1,11 @@
+0.4.0 - ????-??-??
+==================
+
+  * Allow LocalVerifier to use of a custom JWT parser.
+  * Remove vep.verify_[remote|local|dummy] since they just cause
+    confusion.  You should either accept the defaults provided by
+    vep.verify, or use a full-blown Verifier object.
+
 0.3.2 - 2012-02-03
 ==================
 
