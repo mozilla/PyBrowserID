@@ -8,9 +8,14 @@ import unittest
 import warnings
 
 import vep
+from vep.tests.support import (patched_urlopen,
+                               patched_key_fetching,
+                               get_keypair,
+                               fetch_public_key,
+                               make_assertion)
 from vep import jwt
-from vep import RemoteVerifier, LocalVerifier, DummyVerifier
-from vep.verifiers.local import FIFOCache
+from vep import RemoteVerifier, LocalVerifier
+from vep.certificates import FIFOCache, CertificatesManager
 from vep.verifiers.workerpool import WorkerPoolVerifier
 from vep.utils import encode_json_bytes, decode_json_bytes
 from vep.errors import (TrustError,
@@ -99,7 +104,7 @@ class VerifierTestCases(object):
         assertion = encode_json_bytes({})
         self.assertRaises(errors, self.verifier.verify, assertion)
         # This one has no certificates
-        pub, priv = DummyVerifier._get_keypair("TEST")
+        pub, priv = get_keypair("TEST")
         assertion = encode_json_bytes({
             "assertion": jwt.generate({"aud": "TEST"}, priv),
             "certificates": []
@@ -117,29 +122,27 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertEquals(w[0].category, FutureWarning)
 
     def test_error_while_fetching_public_key(self):
-        def urlopen(*args, **kwds):
-            raise RuntimeError("TESTING")
-        self.verifier.urlopen = urlopen
-        self.assertRaises(ConnectionError,
-                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+        with patched_urlopen(exc=RuntimeError("TESTING")):
+            self.assertRaises(ConnectionError,
+                            self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_missing_well_known_document(self):
-        def urlopen(url, data):
-            raise RuntimeError("404 Not Found")
-        self.verifier.urlopen = urlopen
-        self.assertRaises(InvalidIssuerError,
-                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+        with patched_urlopen(exc=RuntimeError("404 Not Found")):
+            self.assertRaises(InvalidIssuerError,
+                            self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_malformed_well_known_document(self):
+        # patch urlopen
         def urlopen(url, data):
             class response(object):
                 @staticmethod
                 def read():
                     return "I AINT NO JSON, FOOL!"
             return response
-        self.verifier.urlopen = urlopen
-        self.assertRaises(InvalidIssuerError,
-                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
+        with patched_urlopen(urlopen):
+            self.assertRaises(InvalidIssuerError,
+                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_malformed_pub_key_document(self):
         called = []
@@ -155,9 +158,10 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
                         raise ValueError("404 Not Found")
                     return "I AINT NO JSON, FOOL!"
             return response
-        self.verifier.urlopen = urlopen
-        self.assertRaises(InvalidIssuerError,
-                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
+        with patched_urlopen(urlopen):
+            self.assertRaises(InvalidIssuerError,
+                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_well_known_doc_with_no_public_key(self):
         def urlopen(url, data):
@@ -166,9 +170,10 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
                 def read():
                     return "{}"
             return response
-        self.verifier.urlopen = urlopen
-        self.assertRaises(InvalidIssuerError,
-                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
+        with patched_urlopen(urlopen):
+            self.assertRaises(InvalidIssuerError,
+                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_well_known_doc_with_public_key(self):
         #  The browserid.org server doesn't currently have /.well-known/vep.
@@ -177,12 +182,13 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
             class response(object):
                 @staticmethod
                 def read():
-                    key = DummyVerifier.fetch_public_key("browserid.org")
+                    key = fetch_public_key("browserid.org")
                     return json.dumps({"public-key": key})
             return response
-        self.verifier.urlopen = urlopen
-        assertion = DummyVerifier.make_assertion("t@m.com", "http://e.com")
-        self.assertTrue(self.verifier.verify(assertion))
+
+        with patched_urlopen(urlopen):
+            assertion = make_assertion("t@m.com", "http://e.com")
+            self.assertTrue(self.verifier.verify(assertion))
 
     def test_handling_of_invalid_content_length_header_from_server(self):
         def urlopen(url, data):
@@ -194,9 +200,10 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
                 def read(size):
                     raise RuntimeError  # pragma: nocover
             return response
-        self.verifier.urlopen = urlopen
-        self.assertRaises(ConnectionError,
-                          self.verifier.verify, EXPIRED_ASSERTION, now=0)
+
+        with patched_urlopen(urlopen):
+            self.assertRaises(ConnectionError, self.verifier.verify,
+                              EXPIRED_ASSERTION, now=0)
 
     def test_error_handling_in_verify_certificate_chain(self):
         self.assertRaises(ValueError,
@@ -221,9 +228,10 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
                            ' "status": "okay", '\
                            ' "audience": "http://myfavoritebeer.org"}'
             return response
-        self.verifier.urlopen = urlopen
-        data = self.verifier.verify(EXPIRED_ASSERTION)
-        self.assertEquals(data["email"], "t@m.com")
+
+        with patched_urlopen(urlopen):
+            data = self.verifier.verify(EXPIRED_ASSERTION)
+            self.assertEquals(data["email"], "t@m.com")
 
     def test_handling_of_invalid_content_length_header_from_server(self):
         def urlopen(url, data):
@@ -235,9 +243,10 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
                 def read(size):
                     raise RuntimeError  # pragma: nocover
             return response
-        self.verifier.urlopen = urlopen
-        self.assertRaises(ConnectionError,
-                          self.verifier.verify, EXPIRED_ASSERTION)
+
+        with patched_urlopen(urlopen):
+            self.assertRaises(ConnectionError,
+                              self.verifier.verify, EXPIRED_ASSERTION)
 
     def test_handling_of_invalid_json_from_server(self):
         def urlopen(url, data):
@@ -246,9 +255,10 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
                 def read():
                     return "SERVER RETURNS SOMETHING THAT ISNT JSON"
             return response
-        self.verifier.urlopen = urlopen
-        self.assertRaises(ConnectionError,
-                          self.verifier.verify, EXPIRED_ASSERTION)
+
+        with patched_urlopen(urlopen):
+            self.assertRaises(ConnectionError,
+                              self.verifier.verify, EXPIRED_ASSERTION)
 
     def test_handling_of_incorrect_audience_returned_by_server(self):
         def urlopen(url, data):
@@ -259,37 +269,35 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
                            ' "status": "okay", '\
                            '"audience": "WRONG"}'
             return response
-        self.verifier.urlopen = urlopen
-        self.assertRaises(AudienceMismatchError,
-                          self.verifier.verify, EXPIRED_ASSERTION)
+
+        with patched_urlopen(urlopen):
+            self.assertRaises(AudienceMismatchError,
+                              self.verifier.verify, EXPIRED_ASSERTION)
 
     def test_handling_of_500_error_from_server(self):
-        def urlopen(url, data):
-            raise ConnectionError("500 Server Error")
-        self.verifier.urlopen = urlopen
-        self.assertRaises(ValueError,
-                          self.verifier.verify, EXPIRED_ASSERTION)
+        with patched_urlopen(exc=ConnectionError("500 Server Error")):
+            self.assertRaises(ValueError,
+                            self.verifier.verify, EXPIRED_ASSERTION)
 
     def test_handling_of_503_error_from_server(self):
-        def urlopen(url, data):
-            raise ConnectionError("503 Back Off Will Ya?!")
-        self.verifier.urlopen = urlopen
-        self.assertRaises(ConnectionError,
-                          self.verifier.verify, EXPIRED_ASSERTION)
+        with patched_urlopen(exc=ConnectionError("503 Back Off")):
+            self.assertRaises(ConnectionError, self.verifier.verify,
+                              EXPIRED_ASSERTION)
 
 
 class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            self.verifier = DummyVerifier()
-        # There should be no warnings from the dummy verifier.
-        self.assertEquals(len(w), 0)
+        self.patched = patched_key_fetching()
+        self.patched.__enter__()
+        self.verifier = LocalVerifier(warning=False)
+
+    def tearDown(self):
+        self.patched.__exit__(None, None, None)
 
     def test_verification_of_valid_dummy_assertion(self):
         audience = "http://example.com"
-        assertion = self.verifier.make_assertion("test@example.com", audience)
+        assertion = make_assertion("test@example.com", audience)
         self.assertTrue(self.verifier.verify(assertion))
         self.assertTrue(self.verifier.verify(assertion, audience))
         self.assertRaises(AudienceMismatchError,
@@ -297,120 +305,112 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def test_verification_of_oldstyle_dummy_assertion(self):
         audience = "http://example.com"
-        assertion = self.verifier.make_assertion("test@example.com", audience,
-                                                 new_style=False)
+        assertion = make_assertion("test@example.com", audience,
+                                   new_style=False)
         self.assertTrue(self.verifier.verify(assertion))
         self.assertTrue(self.verifier.verify(assertion, audience))
-        self.assertRaises(AudienceMismatchError,
-                          self.verifier.verify, assertion, "http://moz.com")
+        self.assertRaises(AudienceMismatchError, self.verifier.verify,
+                          assertion, "http://moz.com")
 
     def test_verification_of_untrusted_issuer(self):
         audience = "http://example.com"
         issuer = "moz.com"
         # Assertions for @moz.com addresses can come from moz.com
-        assertion = self.verifier.make_assertion("test@moz.com", audience,
-                                                 issuer=issuer)
+        assertion = make_assertion("test@moz.com", audience, issuer=issuer)
         self.assertTrue(self.verifier.verify(assertion, audience))
         # But assertions for other addresses cannot.
-        assertion = self.verifier.make_assertion("test@example.com", audience,
-                                                 issuer=issuer)
-        self.assertRaises(InvalidSignatureError,
-                          self.verifier.verify, assertion, audience)
+        assertion = make_assertion("test@example.com", audience,
+                                   issuer=issuer)
+        self.assertRaises(InvalidSignatureError, self.verifier.verify,
+                          assertion, audience)
 
     def test_verification_of_expired_dummy_assertion(self):
         audience = "http://example.com"
         now = (time.time() * 1000)
-        assertion = self.verifier.make_assertion("test@example.com", audience,
-                                                 exp=now - 1)
+        assertion = make_assertion("test@example.com", audience, exp=now - 1)
         self.assertTrue(self.verifier.verify(assertion, now=now - 2))
-        self.assertRaises(ExpiredSignatureError,
-                          self.verifier.verify, assertion)
+        self.assertRaises(ExpiredSignatureError, self.verifier.verify,
+                          assertion)
 
     def test_verification_of_dummy_assertion_with_bad_assertion_sig(self):
         audience = "http://example.com"
-        assertion = self.verifier.make_assertion("test@example.com", audience,
-                                                 assertion_sig="BADTOTHEBONE")
-        self.assertRaises(InvalidSignatureError,
-                          self.verifier.verify, assertion)
+        assertion = make_assertion("test@example.com", audience,
+                                   assertion_sig="BADTOTHEBONE")
+        self.assertRaises(InvalidSignatureError, self.verifier.verify,
+                          assertion)
 
     def test_verification_of_dummy_assertion_with_bad_certificate_sig(self):
         audience = "http://example.com"
-        assertion = self.verifier.make_assertion("test@example.com", audience,
-                                                 certificate_sig="CORRUPTUS")
-        self.assertRaises(InvalidSignatureError,
-                          self.verifier.verify, assertion)
+        assertion = make_assertion("test@example.com", audience,
+                                   certificate_sig="CORRUPTUS")
+        self.assertRaises(InvalidSignatureError, self.verifier.verify,
+                          assertion)
 
     def test_cache_eviction_based_on_time(self):
-        cache = FIFOCache(cache_timeout=0.1)
-        verifier = DummyVerifier(cache=cache)
+        certs = CertificatesManager(FIFOCache(cache_timeout=0.1))
+        verifier = LocalVerifier(certs=certs, warning=False)
         # Prime the cache by verifying an assertion.
-        assertion = self.verifier.make_assertion("test@example.com", "")
+        assertion = make_assertion("test@example.com", "")
         self.assertTrue(verifier.verify(assertion))
         # Make it error out if re-fetching the keys
 
-        def fetch_public_key(hostname):
-            raise RuntimeError("key fetch disabled")
-
-        verifier.fetch_public_key = fetch_public_key
-        # It should be in the cache, so this works fine.
-        verifier.verify(assertion)
-        # But after sleeping it gets evicted and the error is triggered.
-        time.sleep(0.1)
-        self.assertRaises(RuntimeError, verifier.verify, assertion)
+        with patched_key_fetching(exc=RuntimeError("key fetch disabled")):
+            verifier.fetch_public_key = fetch_public_key
+            # It should be in the cache, so this works fine.
+            verifier.verify(assertion)
+            # But after sleeping it gets evicted and the error is triggered.
+            time.sleep(0.1)
+            self.assertRaises(RuntimeError, verifier.verify, assertion)
 
     def test_cache_eviction_based_on_size(self):
-        cache = FIFOCache(max_size=2)
-        verifier = DummyVerifier(cache=cache)
+        certs = CertificatesManager(max_size=2)
+        verifier = LocalVerifier(certs=certs, warning=False)
         # Prime the cache by verifying some assertions.
-        assertion1 = self.verifier.make_assertion("test@1.com", "", "1.com")
+        assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
-        assertion2 = self.verifier.make_assertion("test@2.com", "", "2.com")
+        assertion2 = make_assertion("test@2.com", "", "2.com")
         self.assertTrue(verifier.verify(assertion2))
-        self.assertEquals(len(cache), 2)
+        self.assertEquals(len(certs.cache), 2)
         # Hitting a third host should evict the first public key.
-        assertion3 = self.verifier.make_assertion("test@3.com", "", "3.com")
+        assertion3 = make_assertion("test@3.com", "", "3.com")
         self.assertTrue(verifier.verify(assertion3))
-        self.assertEquals(len(cache), 2)
+        self.assertEquals(len(certs.cache), 2)
         # Make it error out if re-fetching any keys
 
-        def fetch_public_key(hostname):
-            raise RuntimeError("key fetch disabled")
-
-        verifier.fetch_public_key = fetch_public_key
-        # It should have to re-fetch for 1, but not 2.
-        self.assertTrue(verifier.verify(assertion2))
-        self.assertRaises(RuntimeError, verifier.verify, assertion1)
+        with patched_key_fetching(exc=RuntimeError("key fetch disabled")):
+            # It should have to re-fetch for 1, but not 2.
+            self.assertTrue(verifier.verify(assertion2))
+            self.assertRaises(RuntimeError, verifier.verify, assertion1)
 
     def test_cache_eviction_during_write(self):
-        cache = FIFOCache(cache_timeout=0.1)
-        verifier = DummyVerifier(cache=cache)
+        certs = CertificatesManager(cache_timeout=0.1)
+        verifier = LocalVerifier(certs=certs, warning=False)
         # Prime the cache by verifying an assertion.
-        assertion1 = self.verifier.make_assertion("test@1.com", "", "1.com")
+        assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
-        self.assertEquals(len(cache), 1)
+        self.assertEquals(len(certs.cache), 1)
         # Let that cached key expire
         time.sleep(0.1)
         # Now grab a different key; caching it should purge the expired key.
-        assertion2 = self.verifier.make_assertion("test@2.com", "", "2.com")
+        assertion2 = make_assertion("test@2.com", "", "2.com")
         self.assertTrue(verifier.verify(assertion2))
-        self.assertEquals(len(cache), 1)
+        self.assertEquals(len(certs.cache), 1)
         # Check that only the second entry is in cache.
 
-        def fetch_public_key(hostname):
-            raise RuntimeError("key fetch disabled")
-
-        verifier.fetch_public_key = fetch_public_key
-        self.assertTrue(verifier.verify(assertion2))
-        self.assertRaises(RuntimeError, verifier.verify, assertion1)
+        with patched_key_fetching(exc=RuntimeError("key fetch disabled")):
+            self.assertTrue(verifier.verify(assertion2))
+            self.assertRaises(RuntimeError, verifier.verify, assertion1)
 
 
 class TestWorkerPoolVerifier(TestDummyVerifier):
 
     def setUp(self):
-        self.verifier = WorkerPoolVerifier(verifier=DummyVerifier())
-        self.verifier.make_assertion = self.verifier.verifier.make_assertion
+        super(TestWorkerPoolVerifier, self).setUp()
+        self.verifier = WorkerPoolVerifier(
+                verifier=LocalVerifier(warning=False))
 
     def tearDown(self):
+        super(TestWorkerPoolVerifier, self).tearDown()
         self.verifier.close()
 
 

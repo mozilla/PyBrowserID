@@ -24,7 +24,6 @@ from vep.errors import (Error,  # NOQA
 
 from vep.verifiers.remote import RemoteVerifier  # NOQA
 from vep.verifiers.local import LocalVerifier  # NOQA
-from vep.verifiers.dummy import DummyVerifier  # NOQA
 
 
 _DEFAULT_REMOTE_VERIFIER = None
