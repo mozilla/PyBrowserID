@@ -124,12 +124,12 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
     def test_error_while_fetching_public_key(self):
         with patched_urlopen(exc=RuntimeError("TESTING")):
             self.assertRaises(ConnectionError,
-                            self.verifier.verify, EXPIRED_ASSERTION, now=0)
+                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_missing_well_known_document(self):
         with patched_urlopen(exc=RuntimeError("404 Not Found")):
             self.assertRaises(InvalidIssuerError,
-                            self.verifier.verify, EXPIRED_ASSERTION, now=0)
+                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_malformed_well_known_document(self):
         # patch urlopen

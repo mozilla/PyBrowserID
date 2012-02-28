@@ -4,7 +4,7 @@
 
 import unittest
 
-from vep.verifiers.dummy import get_keypair
+from vep.tests.support import get_keypair
 from vep.utils import encode_json_bytes, encode_bytes
 from vep import jwt
 

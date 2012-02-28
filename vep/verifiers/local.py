@@ -137,7 +137,7 @@ class LocalVerifier(object):
 def _emit_warning():
     """Emit a scary warning so users will know this isn't final yet."""
     msg = "The VEP certificate format has not been finalized and may "\
-            "change in backwards-incompatible ways.  If you find that "\
-            "the latest version of this module cannot verify a valid "\
-            "VEP assertion, please contact the author."
+           "change in backwards-incompatible ways.  If you find that "\
+           "the latest version of this module cannot verify a valid "\
+           "VEP assertion, please contact the author."
     warnings.warn(msg, FutureWarning, stacklevel=3)

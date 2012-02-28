@@ -1,5 +1,4 @@
 
- * ability to switch on/off trust of primaries
  * delegation of authority for a domain
- * allow connecting to http://<host>/.well-known/vep?
+ * replace secure_urlopen with the "requests" library
 

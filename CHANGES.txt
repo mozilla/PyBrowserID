@@ -1,6 +1,7 @@
 0.4.0 - ????-??-??
 ==================
 
+  * XXX: document refactoring here when we're finished with it.
   * Allow LocalVerifier to use of a custom JWT parser.
   * Remove vep.verify_[remote|local|dummy] since they just cause
     confusion.  You should either accept the defaults provided by
