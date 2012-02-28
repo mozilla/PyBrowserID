@@ -36,13 +36,16 @@ class CertificatesManager(object):
             # Cache any failures so we're not flooding bad hosts.
             error = key = None
             try:
-                key = fetch_public_key(hostname)
+                key = self.fetch_public_key(hostname)
             except Exception, e:  # NOQA
                 error = e
             self.cache[hostname] = (error, key)
         if error is not None:
             raise error
         return key
+
+    def fetch_public_key(self, hostname):
+        return fetch_public_key(hostname)
 
 
 class FIFOCache(object):
