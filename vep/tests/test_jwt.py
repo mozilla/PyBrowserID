@@ -4,7 +4,7 @@
 
 import unittest
 
-from vep.verifiers.dummy import DummyVerifier
+from vep.verifiers.dummy import get_keypair
 from vep.utils import encode_json_bytes, encode_bytes
 from vep import jwt
 
@@ -20,7 +20,7 @@ class TestJWT(unittest.TestCase):
         self.assertRaises(ValueError, jwt.parse, token)
 
     def test_error_jwt_with_mismatched_algorithm(self):
-        pub, priv = DummyVerifier._get_keypair("TEST")
+        pub, priv = get_keypair("TEST")
         token = jwt.generate({}, priv)
         token = jwt.parse(token)
         pub["algorithm"] = "RS"

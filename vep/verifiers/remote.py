@@ -25,13 +25,10 @@ class RemoteVerifier(object):
     safer than the still-under-development LocalVerifier class.
     """
 
-    def __init__(self, verifier_url=None, urlopen=None):
+    def __init__(self, verifier_url=None):
         if verifier_url is None:
             verifier_url = BROWSERID_VERIFIER_URL
-        if urlopen is None:
-            urlopen = secure_urlopen
         self.verifier_url = verifier_url
-        self.urlopen = urlopen
 
     def verify(self, assertion, audience=None):
         """Verify the given VEP assertion.
@@ -59,7 +56,7 @@ class RemoteVerifier(object):
         post_data = "&".join("%s=%s" % item for item in post_data.items())
         # Post it to the verifier.
         try:
-            resp = self.urlopen(self.verifier_url, post_data)
+            resp = secure_urlopen(self.verifier_url, post_data)
         except ConnectionError, e:
             # BrowserID server sends "500 server error" for broken assertions.
             # For now, just translate that directly.  Should check by hand.
