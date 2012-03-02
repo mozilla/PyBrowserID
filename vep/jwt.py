@@ -94,15 +94,20 @@ class RSKey(object):
     SIZE = None
     HASHMOD = None
 
-    def __init__(self, data):
-        e = int2mpint(int(data["e"]))
-        n = int2mpint(int(data["n"]))
-        try:
-            d = int2mpint(int(data["d"]))
-        except KeyError:
-            self.rsa = _RSA.new_pub_key((e, n))
+    def __init__(self, data=None, obj=None):
+        if data is None and obj is None:
+            raise ValueError('You should specify either data or obj')
+        if obj is not None:
+            self.rsa = obj
         else:
-            self.rsa = _RSA.new_key((e, n, d))
+            e = int2mpint(int(data["e"]))
+            n = int2mpint(int(data["n"]))
+            try:
+                d = int2mpint(int(data["d"]))
+            except KeyError:
+                self.rsa = _RSA.new_pub_key((e, n))
+            else:
+                self.rsa = _RSA.new_key((e, n, d))
 
     def verify(self, signed_data, signature):
         digest = self.HASHMOD(signed_data).digest()
@@ -144,19 +149,24 @@ class DSKey(object):
     BITLENGTH = None
     HASHMOD = None
 
-    def __init__(self, data):
-        self.p = p = long(data["p"], 16)
-        self.q = q = long(data["q"], 16)
-        self.g = g = long(data["g"], 16)
-        self.y = y = long(data["y"], 16)
-        if "x" not in data:
-            self.x = None
-            self.dsa = _DSA.load_pub_key_params(int2mpint(p), int2mpint(q),
-                                                int2mpint(g), int2mpint(y))
+    def __init__(self, data=None, obj=None):
+        if data is None and obj is None:
+            raise ValueError('You should specify either data or obj')
+        if obj:
+            self.dsa = obj
         else:
-            self.x = x = long(data["x"], 16)
-            self.dsa = _DSA.load_key_params(int2mpint(p), int2mpint(q),
-                                            int2mpint(g), int2mpint(y),
+            self.p = p = long(data["p"], 16)
+            self.q = q = long(data["q"], 16)
+            self.g = g = long(data["g"], 16)
+            self.y = y = long(data["y"], 16)
+            if "x" not in data:
+                self.x = None
+                self.dsa = _DSA.load_pub_key_params(int2mpint(p), int2mpint(q),
+                                                    int2mpint(g), int2mpint(y))
+            else:
+                self.x = x = long(data["x"], 16)
+                self.dsa = _DSA.load_key_params(int2mpint(p), int2mpint(q),
+                                                int2mpint(g), int2mpint(y),
                                             int2mpint(x))
 
     def verify(self, signed_data, signature):
