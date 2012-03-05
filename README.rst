@@ -1,8 +1,8 @@
 ========================================================
-PyBrowserID: a python library for the BrowserID Protocol
+PyBrowserID: a python library for the BrowseriD Protocol
 ========================================================
 
-This is a python client library for the BrowserID Protocol:
+This is a python client library for the BrowserID protocol:
 
     https://browserid.org/
 
@@ -17,23 +17,27 @@ The precise implementation of this function will change depending on the
 current recommendedations of the BrowserID team.  Currently it POSTs the
 assertion to the remote verifier services on browserid.org.
 
-If you have specialised needs, you can also create a "verifier" class to
-encapsulate any custom settings you may require.  For example, here is how
-to do remote verification using a custom url-opening function::
+Note that you *must* specify your site's root URL as the second argument
+to that function.  This is the "expected audience" and is a key security
+feature of BrowserID.
 
-    >>> verifier = browserid.RemoteVerifier(urlopen=my_urlopen_func)
-    >>> data = verifier.verify(BROWSERIDASSERTION, "http://mysite.com")
+If specifying the audience every time is infeasible, you can create an
+instance of a "Verifier" class and specify wildcard patterns for the
+expected audience::
+
+    >>> verifier = browserid.RemoteVerifier(["*.mysite.com"])
+    >>> data = verifier.verify(BROWSERIDASSERTION)
     >>> print data["email"]
     "test@example.com"
 
 For improved performance, or if you just want to live on the bleeding edge,
 you can explicitly perform verification locally like so::
 
-    >>> verifier = browserid.LocalVerifier()
-    >>> data = verifier.verify(BROWSERIDASSERTION, "http://mysite.com")
+    >>> verifier = browserid.LocalVerifier(["*.mysite.com"])
+    >>> data = verifier.verify(BROWSERIDASSERTION)
     >>> print data["email"]
     "test@example.com"
 
-Note that the details of the Verified Email Protocol are still in flux, so
+Note that the details of the BrowserID Protocol are still in flux, so
 local verification might break due to incompatible changes.  As things 
 stabilise this will become the default implementation.

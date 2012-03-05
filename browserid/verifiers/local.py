@@ -6,6 +6,7 @@ import time
 import warnings
 
 from browserid import jwt
+from browserid.verifiers import Verifier
 from browserid.certificates import CertificatesManager
 from browserid.utils import  unbundle_certs_and_assertion
 from browserid.errors import (InvalidSignatureError,
@@ -17,7 +18,7 @@ DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
                                "dev.diresworb.org")
 
 
-class LocalVerifier(object):
+class LocalVerifier(Verifier):
     """Class for local verification of BrowserID identity assertions.
 
     This class implements the logic for verifying identity assertions under
@@ -25,7 +26,7 @@ class LocalVerifier(object):
     verify() method and let it work its magic.
     """
 
-    def __init__(self, trusted_secondaries=None, certs=None,
+    def __init__(self, audiences, trusted_secondaries=None, certs=None,
                  parser_cls=None, warning=True):
         if trusted_secondaries is None:
             trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES
@@ -33,6 +34,7 @@ class LocalVerifier(object):
         if certs is None:
             certs = CertificatesManager()
 
+        super(LocalVerifier, self).__init__(audiences)
         self.trusted_secondaries = trusted_secondaries
         self.certs = certs
         self.parser_cls = parser_cls
@@ -67,13 +69,13 @@ class LocalVerifier(object):
         # It saves having to test for the existence of individual
         # items in the various assertion payloads.
         try:
-            certificates, assertion = unbundle_certs_and_assertion(assertion)
-            # Check that the assertion is usable and valid.
+            # Check the audience against the given value, or the wildcards.
+            self.check_audience(assertion, audience)
+
+            # Grab the assertion, check that it has not expired.
             # No point doing all that crypto if we're going to fail out anyway.
+            certificates, assertion = unbundle_certs_and_assertion(assertion)
             assertion = self.parse_jwt(assertion)
-            if audience is not None:
-                if assertion.payload["aud"] != audience:
-                    raise AudienceMismatchError(assertion.payload["aud"])
             if assertion.payload["exp"] < now:
                 raise ExpiredSignatureError(assertion.payload["exp"])
 

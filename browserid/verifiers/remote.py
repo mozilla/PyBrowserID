@@ -4,6 +4,7 @@
 
 import json
 
+from browserid.verifiers import Verifier
 from browserid.utils import (secure_urlopen,
                              decode_json_bytes,
                              unbundle_certs_and_assertion)
@@ -13,11 +14,8 @@ from browserid.errors import (InvalidSignatureError,
 
 BROWSERID_VERIFIER_URL = "https://browserid.org/verify"
 
-DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
-                               "dev.diresworb.org")
 
-
-class RemoteVerifier(object):
+class RemoteVerifier(Verifier):
     """Class for remote verification of BrowserID identity assertions.
 
     This class submits assertions to the browserid.org verifier service
@@ -25,9 +23,10 @@ class RemoteVerifier(object):
     safer than the still-under-development LocalVerifier class.
     """
 
-    def __init__(self, verifier_url=None):
+    def __init__(self, audiences, verifier_url=None):
         if verifier_url is None:
             verifier_url = BROWSERID_VERIFIER_URL
+        super(RemoteVerifier, self).__init__(audiences)
         self.verifier_url = verifier_url
 
     def verify(self, assertion, audience=None):
@@ -44,13 +43,11 @@ class RemoteVerifier(object):
         If you don't specify an audience, you *MUST* validate the audience
         value returned by this method.
         """
-        # Read audience from assertion if not specified.
-        if audience is None:
-            try:
-                _, token = unbundle_certs_and_assertion(assertion)
-                audience = decode_json_bytes(token.split(".")[1])["aud"]
-            except (KeyError, IndexError):
-                raise ValueError("Malformed JWT")
+        # Check the audience locally.
+        # No point talking to the network if we know it's going to fail.
+        # If no explicit audience was given, this will also parse it out
+        # for inclusion in the request to the remote verifier service.
+        audience = self.check_audience(assertion, audience)
         # Encode the data into x-www-form-urlencoded.
         post_data = {"assertion": assertion, "audience": audience}
         post_data = "&".join("%s=%s" % item for item in post_data.items())

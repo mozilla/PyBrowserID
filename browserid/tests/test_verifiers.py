@@ -117,7 +117,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
     def setUp(self):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            self.verifier = LocalVerifier()
+            self.verifier = LocalVerifier(["*"])
         # There should be a warning about using this verifier.
         self.assertEquals(w[0].category, FutureWarning)
 
@@ -217,7 +217,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
 class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
-        self.verifier = RemoteVerifier()
+        self.verifier = RemoteVerifier(["*"])
 
     def test_handling_of_valid_response_from_server(self):
         def urlopen(url, data):
@@ -290,7 +290,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
     def setUp(self):
         self.patched = patched_key_fetching()
         self.patched.__enter__()
-        self.verifier = LocalVerifier(warning=False)
+        self.verifier = LocalVerifier(["*"], warning=False)
 
     def tearDown(self):
         self.patched.__exit__(None, None, None)
@@ -348,7 +348,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def test_cache_eviction_based_on_time(self):
         certs = CertificatesManager(FIFOCache(cache_timeout=0.1))
-        verifier = LocalVerifier(certs=certs, warning=False)
+        verifier = LocalVerifier(["*"], certs=certs, warning=False)
         # Prime the cache by verifying an assertion.
         assertion = make_assertion("test@example.com", "")
         self.assertTrue(verifier.verify(assertion))
@@ -364,7 +364,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def test_cache_eviction_based_on_size(self):
         certs = CertificatesManager(max_size=2)
-        verifier = LocalVerifier(certs=certs, warning=False)
+        verifier = LocalVerifier(["*"], certs=certs, warning=False)
         # Prime the cache by verifying some assertions.
         assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
@@ -384,7 +384,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def test_cache_eviction_during_write(self):
         certs = CertificatesManager(cache_timeout=0.1)
-        verifier = LocalVerifier(certs=certs, warning=False)
+        verifier = LocalVerifier(["*"], certs=certs, warning=False)
         # Prime the cache by verifying an assertion.
         assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
@@ -401,13 +401,36 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
             self.assertTrue(verifier.verify(assertion2))
             self.assertRaises(RuntimeError, verifier.verify, assertion1)
 
+    def test_audience_pattern_checking(self):
+        verifier = LocalVerifier(["*.moz.com", "www.test.com"], warning=False)
+        # Domains like *.moz.com should be valid audiences.
+        # They will work with both the implicit patterns and explicit audience.
+        assertion = make_assertion("test@example.com", "www.moz.com")
+        self.assertTrue(verifier.verify(assertion))
+        self.assertTrue(verifier.verify(assertion, "www.moz.com"))
+        self.assertRaises(AudienceMismatchError,
+                          verifier.verify, assertion, "www.test.com")
+        # The specific domain www.test.com should be a valid audience.
+        # It will work with both the implicit patterns and explicit audience.
+        assertion = make_assertion("test@example.com", "www.test.com")
+        self.assertTrue(verifier.verify(assertion))
+        self.assertTrue(verifier.verify(assertion, "www.test.com"))
+        self.assertRaises(AudienceMismatchError,
+                          verifier.verify, assertion, "www.moz.com")
+        # Domains not matching any patterns should not be valid audiences.
+        # They will fail unless given as an explicit argument.
+        assertion = make_assertion("test@example.com", "www.evil.com")
+        self.assertRaises(AudienceMismatchError, verifier.verify, assertion)
+        self.assertTrue(verifier.verify(assertion, "www.evil.com"))
+
 
 class TestWorkerPoolVerifier(TestDummyVerifier):
 
     def setUp(self):
         super(TestWorkerPoolVerifier, self).setUp()
         self.verifier = WorkerPoolVerifier(
-                verifier=LocalVerifier(warning=False))
+                verifier=LocalVerifier(["*"], warning=False)
+        )
 
     def tearDown(self):
         super(TestWorkerPoolVerifier, self).tearDown()

@@ -2,6 +2,9 @@
 ==================
 
   * Renamed from PyVEP to PyBrowserID, in keeping with Mozilla branding.
+  * Verifier objects must be given a list of audience patterns as their first
+    argument.  This makes it easier to do the right thing with audience checks
+    rather than, say, passing in the hostname from the request.
   * XXX: document refactoring here when we're finished with it.
   * Allow LocalVerifier to use of a custom JWT parser.
   * Remove browserid.verify_[remote|local|dummy] since they just cause
