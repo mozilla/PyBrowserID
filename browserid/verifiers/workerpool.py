@@ -5,7 +5,7 @@
 import threading
 import multiprocessing
 
-from vep.verifiers.local import LocalVerifier
+from browserid.verifiers.local import LocalVerifier
 
 
 class WorkerPoolVerifier(object):
@@ -61,9 +61,9 @@ class WorkerPoolVerifier(object):
         self.close()
 
     def verify(self, *args, **kwds):
-        """Verify the given VEP assertion.
+        """Verify the given BrowserID assertion.
 
-        This method parses a VEP identity assertion, verifies the bundled
+        This method parses a BrowserID identity assertion, verifies the bundled
         chain of certificates and signatures, and returns the extracted
         email address and audience.
 

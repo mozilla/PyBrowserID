@@ -9,9 +9,10 @@ import socket
 import ssl
 import warnings
 
-from vep.errors import ConnectionError
-from vep.utils import secure_urlopen, encode_bytes, decode_bytes
-from vep.utils import encode_json_bytes, decode_json_bytes, get_assertion_info
+from browserid.errors import ConnectionError
+from browserid.utils import secure_urlopen, encode_bytes, decode_bytes
+from browserid.utils import encode_json_bytes, decode_json_bytes
+from browserid.utils import get_assertion_info
 
 
 def _filepath(name):

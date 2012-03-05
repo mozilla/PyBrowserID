@@ -7,23 +7,23 @@ import json
 import unittest
 import warnings
 
-import vep
-from vep.tests.support import (patched_urlopen,
-                               patched_key_fetching,
-                               get_keypair,
-                               fetch_public_key,
-                               make_assertion)
-from vep import jwt
-from vep import RemoteVerifier, LocalVerifier
-from vep.certificates import FIFOCache, CertificatesManager
-from vep.verifiers.workerpool import WorkerPoolVerifier
-from vep.utils import encode_json_bytes, decode_json_bytes
-from vep.errors import (TrustError,
-                        ConnectionError,
-                        ExpiredSignatureError,
-                        InvalidSignatureError,
-                        InvalidIssuerError,
-                        AudienceMismatchError)
+import browserid
+from browserid.tests.support import (patched_urlopen,
+                                     patched_key_fetching,
+                                     get_keypair,
+                                     fetch_public_key,
+                                     make_assertion)
+from browserid import jwt
+from browserid import RemoteVerifier, LocalVerifier
+from browserid.certificates import FIFOCache, CertificatesManager
+from browserid.verifiers.workerpool import WorkerPoolVerifier
+from browserid.utils import encode_json_bytes, decode_json_bytes
+from browserid.errors import (TrustError,
+                              ConnectionError,
+                              ExpiredSignatureError,
+                              InvalidSignatureError,
+                              InvalidIssuerError,
+                              AudienceMismatchError)
 
 # This is an old assertion I generated on myfavoritebeer.org.
 # It's expired and signed with an old private key.
@@ -176,7 +176,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
                               self.verifier.verify, EXPIRED_ASSERTION, now=0)
 
     def test_well_known_doc_with_public_key(self):
-        #  The browserid.org server doesn't currently have /.well-known/vep.
+        #  The browserid.org server doesn't currently have /.well-known/browserid.
         #  This simulates it with a dummy key.
         def urlopen(url, data):  # NOQA
             class response(object):
@@ -417,4 +417,4 @@ class TestWorkerPoolVerifier(TestDummyVerifier):
 class TestShortcutFunction(unittest.TestCase):
 
     def test_shortcut(self):
-        self.assertRaises(TrustError, vep.verify, EXPIRED_ASSERTION)
+        self.assertRaises(TrustError, browserid.verify, EXPIRED_ASSERTION)

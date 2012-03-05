@@ -12,9 +12,9 @@ with open(os.path.join(here, 'CHANGES.txt')) as f:
 
 requires = ['M2Crypto']
 
-setup(name='PyVEP',
-      version='0.3.2',
-      description='Python library for the Verified Email Protocol',
+setup(name='PyBrowserID',
+      version='0.4.0',
+      description='Python library for the BrowseriD Protocol',
       long_description=README + '\n\n' + CHANGES,
       license='MPLv2.0',
       classifiers=[
@@ -23,11 +23,11 @@ setup(name='PyVEP',
         ],
       author='Mozilla Identity Team',
       author_email='dev-identity@lists.mozilla.org',
-      url='https://github.com/mozilla/PyVEP',
-      keywords='authentication vep browserid login email',
+      url='https://github.com/mozilla/PyBrowserID',
+      keywords='authentication browserid login email',
       packages=find_packages(),
       include_package_data=True,
       zip_safe=False,
       install_requires=requires,
       tests_require=requires,
-      test_suite="vep")
+      test_suite="browserid")

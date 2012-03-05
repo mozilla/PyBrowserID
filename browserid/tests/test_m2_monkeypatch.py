@@ -4,8 +4,8 @@
 
 import unittest
 
-from vep.jwt import int2mpint
-import vep._m2_monkeypatch as _m2
+from browserid.jwt import int2mpint
+import browserid._m2_monkeypatch as _m2
 
 
 # Dummy RSA key for testing purposes.

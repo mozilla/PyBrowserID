@@ -8,11 +8,11 @@ import time
 
 from urlparse import urljoin
 
-from vep.utils import secure_urlopen
-from vep.errors import (ConnectionError,
-                        InvalidIssuerError)
+from browserid.utils import secure_urlopen
+from browserid.errors import (ConnectionError,
+                              InvalidIssuerError)
 
-WELL_KNOWN_URL = "/.well-known/vep"
+WELL_KNOWN_URL = "/.well-known/browserid"
 
 
 class CertificatesManager(object):
@@ -49,11 +49,11 @@ class CertificatesManager(object):
 
 
 class FIFOCache(object):
-    """A simple in-memory FIFO cache for VEP public keys.
+    """A simple in-memory FIFO cache for BrowseriD public keys.
 
     This is a *very* simple in-memory FIFO cache, used as the default object
-    for caching VEP public keys in the LocalVerifier.  Items are kept for
-    'cache_timeout' seconds before being evicted from the cache.  If the
+    for caching BrowserID public keys in the LocalVerifier.  Items are kept
+    for 'cache_timeout' seconds before being evicted from the cache.  If the
     'max_size' argument is not None and the cache grows above this size,
     items will be evicted early in order of insertion into the cache.
 
@@ -142,9 +142,9 @@ class FIFOCache(object):
 
 
 def fetch_public_key(hostname, well_known_url=None):
-    """Fetch the VEP public key for the given hostname.
+    """Fetch the BrowserID public key for the given hostname.
 
-    This function uses the well-known VEP meta-data file to extract
+    This function uses the well-known BrowserID meta-data file to extract
     the public key for the given hostname.
     """
     if well_known_url is None:
@@ -155,10 +155,10 @@ def fetch_public_key(hostname, well_known_url=None):
     # raise an InvalidIssuerError.  Any other connection-related
     # errors are passed back up to the caller.
     try:
-        # Try to read the well-known vep file to load the key.
+        # Try to read the well-known browserid file to load the key.
         try:
-            vep_url = urljoin(hostname, well_known_url)
-            vep_data = urlread(vep_url)
+            browserid_url = urljoin(hostname, well_known_url)
+            browserid_data = urlread(browserid_url)
         except ConnectionError, e:
             if "404" not in str(e):
                 raise
@@ -176,15 +176,15 @@ def fetch_public_key(hostname, well_known_url=None):
             # The well-known file was found, it must contain the key
             # data as part of its JSON response.
             try:
-                key = json.loads(vep_data)["public-key"]
+                key = json.loads(browserid_data)["public-key"]
             except (ValueError, KeyError):
-                msg = "Host %r has malformed VEP metadata document"
+                msg = "Host %r has malformed BrowserID metadata document"
                 raise InvalidIssuerError(msg % (hostname,))
         return key
     except ConnectionError, e:
         if "404" not in str(e):
             raise
-        msg = "Host %r does not declare support for VEP" % (hostname,)
+        msg = "Host %r does not declare support for BrowserID" % (hostname,)
         raise InvalidIssuerError(msg)
 
 

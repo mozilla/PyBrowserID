@@ -1,11 +1,12 @@
 0.4.0 - ????-??-??
 ==================
 
+  * Renamed from PyVEP to PyBrowserID, in keeping with Mozilla branding.
   * XXX: document refactoring here when we're finished with it.
   * Allow LocalVerifier to use of a custom JWT parser.
-  * Remove vep.verify_[remote|local|dummy] since they just cause
-    confusion.  You should either accept the defaults provided by
-    vep.verify, or use a full-blown Verifier object.
+  * Remove browserid.verify_[remote|local|dummy] since they just cause
+    confusion.  You should either accept the defaults provided by the
+    browserid.verify function, or use a full-blown Verifier object.
 
 0.3.2 - 2012-02-03
 ==================

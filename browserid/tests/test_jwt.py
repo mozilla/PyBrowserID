@@ -4,9 +4,9 @@
 
 import unittest
 
-from vep.tests.support import get_keypair
-from vep.utils import encode_json_bytes, encode_bytes
-from vep import jwt
+from browserid.tests.support import get_keypair
+from browserid.utils import encode_json_bytes, encode_bytes
+from browserid import jwt
 
 
 class TestJWT(unittest.TestCase):

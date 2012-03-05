@@ -6,11 +6,11 @@ import time
 import hashlib
 from contextlib import contextmanager
 
-from vep.utils import encode_bytes, bundle_certs_and_assertion
+from browserid.utils import encode_bytes, bundle_certs_and_assertion
 
-from vep import certificates
-from vep import jwt
-from vep.verifiers import remote
+from browserid import certificates
+from browserid import jwt
+from browserid.verifiers import remote
 
 # These are values used to generate dummy DSA keys.
 # I took them directly from the javacript jwcrypto source code, which claims:
@@ -45,7 +45,7 @@ def _hex(value):
 
 
 def fetch_public_key(hostname):
-    """Fetch the VEP public key for the given hostname.
+    """Fetch the BrowserID public key for the given hostname.
 
     Actually, this implementation generates the key locally based on
     a hash of the hostname.  This lets us exercise all the crypto code
@@ -94,8 +94,8 @@ def make_assertion(email, audience, issuer=None, exp=None,
                     new_style=True):
     """Generate a new dummy assertion for the given email address.
 
-    This method lets you generate VEP assertions using dummy private keys.
-    Called with just an email and audience it will generate an assertion
+    This method lets you generate BrowserID assertions using dummy private
+    keys. Called with just an email and audience it will generate an assertion
     from browserid.org.
 
     By specifying the "exp", "assertion_sig" or "certificate_sig" arguments
@@ -130,7 +130,7 @@ def make_assertion(email, audience, issuer=None, exp=None,
     if certificate_sig is not None:
         certificate = ".".join(certificate.split(".")[:-1] +
                                 [encode_bytes(certificate_sig)])
-    # Combine them into a VEP bundled assertion.
+    # Combine them into a BrowserID bundled assertion.
     return bundle_certs_and_assertion([certificate], assertion, new_style)
 
 

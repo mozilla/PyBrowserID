@@ -5,12 +5,12 @@
 import time
 import warnings
 
-from vep import jwt
-from vep.certificates import CertificatesManager
-from vep.utils import  unbundle_certs_and_assertion
-from vep.errors import (InvalidSignatureError,
-                        ExpiredSignatureError,
-                        AudienceMismatchError)
+from browserid import jwt
+from browserid.certificates import CertificatesManager
+from browserid.utils import  unbundle_certs_and_assertion
+from browserid.errors import (InvalidSignatureError,
+                              ExpiredSignatureError,
+                              AudienceMismatchError)
 
 
 DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
@@ -18,11 +18,11 @@ DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
 
 
 class LocalVerifier(object):
-    """Class for local verification of VEP identity assertions.
+    """Class for local verification of BrowserID identity assertions.
 
     This class implements the logic for verifying identity assertions under
-    the Verified Email Protocol.  Pass a VEP assertion token to the verify()
-    method and let it work its magic.
+    the Verified Email Protocol.  Pass a BrowserID assertion token to the
+    verify() method and let it work its magic.
     """
 
     def __init__(self, trusted_secondaries=None, certs=None,
@@ -44,11 +44,11 @@ class LocalVerifier(object):
         return jwt.parse(data, self.parser_cls)
 
     def verify(self, assertion, audience=None, now=None):
-        """Verify the given VEP assertion.
+        """Verify the given BrowserID assertion.
 
-        This method parses a VEP identity assertion, verifies the bundled
-        chain of certificates and signatures, and returns the extracted
-        email address and audience.
+        This method parses a BrowserID identity assertion, verifies the
+        bundled chain of certificates and signatures, and returns the
+        extracted email address and audience.
 
         If the 'audience' argument is given, it first verifies that the
         audience of the assertion matches the one given.  This can help
@@ -136,8 +136,8 @@ class LocalVerifier(object):
 
 def _emit_warning():
     """Emit a scary warning so users will know this isn't final yet."""
-    msg = "The VEP certificate format has not been finalized and may "\
+    msg = "The BrowserID certificate format has not been finalized and may "\
            "change in backwards-incompatible ways.  If you find that "\
            "the latest version of this module cannot verify a valid "\
-           "VEP assertion, please contact the author."
+           "BrowserID assertion, please contact the author."
     warnings.warn(msg, FutureWarning, stacklevel=3)

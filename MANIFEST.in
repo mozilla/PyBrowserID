@@ -1,3 +1,3 @@
 include CHANGES.txt
 include README.rst
-recursive-include vep *.crt *.key
+recursive-include browserid *.crt *.key

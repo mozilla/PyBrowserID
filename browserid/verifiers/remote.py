@@ -4,12 +4,12 @@
 
 import json
 
-from vep.utils import (secure_urlopen,
-                       decode_json_bytes,
-                       unbundle_certs_and_assertion)
-from vep.errors import (InvalidSignatureError,
-                        ConnectionError,
-                        AudienceMismatchError)
+from browserid.utils import (secure_urlopen,
+                             decode_json_bytes,
+                             unbundle_certs_and_assertion)
+from browserid.errors import (InvalidSignatureError,
+                              ConnectionError,
+                              AudienceMismatchError)
 
 BROWSERID_VERIFIER_URL = "https://browserid.org/verify"
 
@@ -18,7 +18,7 @@ DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
 
 
 class RemoteVerifier(object):
-    """Class for remote verification of VEP identity assertions.
+    """Class for remote verification of BrowserID identity assertions.
 
     This class submits assertions to the browserid.org verifier service
     for remote verification.  It's slower but potentially a little bit
@@ -31,9 +31,9 @@ class RemoteVerifier(object):
         self.verifier_url = verifier_url
 
     def verify(self, assertion, audience=None):
-        """Verify the given VEP assertion.
+        """Verify the given BrowserID assertion.
 
-        This method posts the given VEP assertion to the remove verifier
+        This method posts the given BrowserID assertion to the remote verifier
         service.  If it is successfully verified then a dict giving the
         email and audience is returned.  If it is not valid then an error
         is raised.

@@ -3,7 +3,7 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-Utility functions for PyVEP.
+Utility functions for PyBrowserID.
 
 """
 
@@ -18,7 +18,7 @@ import urllib2
 import warnings
 from fnmatch import fnmatch
 
-from vep.errors import ConnectionError
+from browserid.errors import ConnectionError
 
 
 def decode_bytes(value):
@@ -80,7 +80,7 @@ def encode_json_bytes(obj):
 def bundle_certs_and_assertion(certificates, assertion, new_style=True):
     """Bundle certificates and assertion into a single string.
 
-    This function produces a VEP "bundled assertion" that combines the
+    This function produces a BrowserID "bundled assertion" that combines the
     certificate chain and final assertion into a single string.  By default
     it uses the "new-style" tilde-separated format; pass new_style=False to
     use the older b64-encoded-JSON format.
@@ -97,8 +97,8 @@ def bundle_certs_and_assertion(certificates, assertion, new_style=True):
 def unbundle_certs_and_assertion(bundle):
     """Unbundle certificates and assertion from a single string.
 
-    This function parse a VEP "bundled assertion" into the contained chain
-    of certificates and final assertion.  The returned value is a tuple
+    This function parses a BrowserID "bundled assertion" into the contained
+    chain of certificates and final assertion.  The returned value is a tuple
     (certificates, assertion).
     """
     if "~" in bundle:

@@ -3,18 +3,18 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-Error classes for PyVEP.
+Error classes for PyBrowserID.
 
 """
 
 
 class Error(Exception):
-    """Base error class for all PyVEP exceptions."""
+    """Base error class for all PyBrowserID exceptions."""
     pass
 
 
 class ConnectionError(Error):
-    """Error raised when PyVEP fails to connect to a remote server."""
+    """Error raised when PyBrowserID fails to connect to a remote server."""
     pass
 
 
@@ -24,7 +24,7 @@ class TrustError(Error):
 
 
 class InvalidSignatureError(TrustError):
-    """Error raised when PyVEP encounters an invalid signature."""
+    """Error raised when PyBrowserID encounters an invalid signature."""
     pass
 
 
@@ -34,7 +34,7 @@ class InvalidIssuerError(TrustError):
 
 
 class ExpiredSignatureError(TrustError):
-    """Error raised when PyVEP encounters an expired signature or assertion."""
+    """Error raised when PyBrowserID encounters an expired signature."""
     pass
 
 

@@ -10,11 +10,12 @@ Utilities for dealing with Signed JSON Web Tokens.
 import struct
 import hashlib
 from binascii import unhexlify
-from vep._m2_monkeypatch import DSA as _DSA
-from vep._m2_monkeypatch import RSA as _RSA
 
-from vep.utils import decode_bytes, encode_bytes
-from vep.utils import decode_json_bytes, encode_json_bytes
+from browserid._m2_monkeypatch import DSA as _DSA
+from browserid._m2_monkeypatch import RSA as _RSA
+
+from browserid.utils import decode_bytes, encode_bytes
+from browserid.utils import decode_json_bytes, encode_json_bytes
 
 
 def parse(jwt, cls=None):
