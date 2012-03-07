@@ -39,5 +39,5 @@ def verify(assertion, audience=None):
     """
     global _DEFAULT_VERIFIER
     if _DEFAULT_VERIFIER is None:
-        _DEFAULT_VERIFIER = RemoteVerifier(["*"])
+        _DEFAULT_VERIFIER = RemoteVerifier()
     return _DEFAULT_VERIFIER.verify(assertion, audience)

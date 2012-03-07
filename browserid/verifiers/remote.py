@@ -23,7 +23,7 @@ class RemoteVerifier(Verifier):
     safer than the still-under-development LocalVerifier class.
     """
 
-    def __init__(self, audiences, verifier_url=None):
+    def __init__(self, audiences=None, verifier_url=None):
         if verifier_url is None:
             verifier_url = BROWSERID_VERIFIER_URL
         super(RemoteVerifier, self).__init__(audiences)

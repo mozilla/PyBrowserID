@@ -26,7 +26,7 @@ class LocalVerifier(Verifier):
     verify() method and let it work its magic.
     """
 
-    def __init__(self, audiences, trusted_secondaries=None, certs=None,
+    def __init__(self, audiences=None, trusted_secondaries=None, certs=None,
                  parser_cls=None, warning=True):
         if trusted_secondaries is None:
             trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES

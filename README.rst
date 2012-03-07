@@ -21,9 +21,17 @@ Note that you *must* specify your site's root URL as the second argument
 to that function.  This is the "expected audience" and is a key security
 feature of BrowserID.
 
-If specifying the audience every time is infeasible, you can create an
-instance of a "Verifier" class and specify wildcard patterns for the
-expected audience::
+If you are not able to determine the precise hostname by which your site
+is being accessed (e.g. due to virtual hosting) then you may specify one or
+more wildcard patterns like so::
+
+    >>> data = browserid.verify(BROWSERIDASSERTION, ["http://*.mysite.com"])
+    >>> print data["email"]
+    "test@example.com"
+
+For finer control over the verification process, you can create an instance of
+a "Verifier" class and avoid having to specify the audience patterns over
+and over again::
 
     >>> verifier = browserid.RemoteVerifier(["*.mysite.com"])
     >>> data = verifier.verify(BROWSERIDASSERTION)
@@ -31,7 +39,8 @@ expected audience::
     "test@example.com"
 
 For improved performance, or if you just want to live on the bleeding edge,
-you can explicitly perform verification locally like so::
+you can explicitly perform verification locally by using the LocalVerifier
+class like so::
 
     >>> verifier = browserid.LocalVerifier(["*.mysite.com"])
     >>> data = verifier.verify(BROWSERIDASSERTION)

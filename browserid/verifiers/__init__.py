@@ -14,9 +14,9 @@ from browserid.utils import (secure_urlopen,
 class Verifier(object):
     """Abstract base class for verifying BrowserID assertions."""
 
-    def __init__(self, audiences):
+    def __init__(self, audiences=None):
         self.audiences = audiences
-        self._audiences_re = self._compile_audience_patterns(audiences)
+        self._audience_re = self._compile_audience_patterns(audiences)
 
     def verify(self, assertion, audience=None):
         """Verify the given BrowserID assertion.
@@ -46,16 +46,22 @@ class Verifier(object):
             audience = decode_json_bytes(token.split(".")[1])["aud"]
         except (KeyError, IndexError):
             raise ValueError("Malformed JWT")
-        if expected_audience is not None:
-            if expected_audience != audience:
-                raise AudienceMismatchError
+        if expected_audience is None:
+            audience_re = self._audience_re
         else:
-            if not self._audiences_re.match(audience):
-                raise AudienceMismatchError
+            audience_re = self._compile_audience_patterns(expected_audience)
+        if audience_re is None:
+            raise AudienceMismatchError
+        if not audience_re.match(audience):
+            raise AudienceMismatchError
         return audience
 
     def _compile_audience_patterns(self, audiences):
         """Compile a list of audience patterns into a regular expression."""
+        if not audiences:
+            return None
+        if isinstance(audiences, basestring):
+            audiences = (audiences,)
         regexps = []
         for pattern in audiences:
             regexp = fnmatch.translate(pattern)
