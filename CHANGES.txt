@@ -1,81 +1,18 @@
-0.4.0 - ????-??-??
+
+0.4.0 - 2012-03-13
 ==================
 
   * Renamed from PyVEP to PyBrowserID, in keeping with Mozilla branding.
-  * Verifier objects must be given a list of audience patterns as their first
-    argument.  This makes it easier to do the right thing with audience checks
-    rather than, say, passing in the hostname from the request.
-  * XXX: document refactoring here when we're finished with it.
-  * Allow LocalVerifier to use of a custom JWT parser.
-  * Remove browserid.verify_[remote|local|dummy] since they just cause
+  * Audience checking now accepts glob-style patterns as well as fixed
+    audience strings.
+  * Verifier objects now accept a list of audience patterns as their first
+    argument.  This is designed to encourage doing the right thing rather than,
+    say, passing in the hostname from the request.
+  * Allowed LocalVerifier to use of a custom JWT parser.
+  * Removed browserid.verify_[remote|local|dummy] since they just cause
     confusion.  You should either accept the defaults provided by the
     browserid.verify function, or use a full-blown Verifier object.
-
-0.3.2 - 2012-02-03
-==================
-
-  * Fix segfaults on OSX.
-  * Update license to MPL 2.0.
-
-
-0.3.1 - 2012-01-24
-==================
-
-  * Update the audience-extraction code in RemoteVerifier to support the
-    new-style assertion format; thanks junkafarian.
-
-
-0.3.0 - 2012-01-06
-==================
-
-  * Support the "new-style" VEP assertion format.  This avoids double-b64-
-    encoding and generally results in smaller assertions.
-  * Warn rather than fail if we can't find the CA certificates.  This will
-    help new users get up and running more easily.
-  * Add shortcut functions for verification with the default options.
-    They are vep.verify(), vep.verify_remote(), vep.verify_local(), and 
-    vep.verify_dummy().
-  * Add vep.utils.get_assertion_info(), which parses useful information out
-    of an assertion without actually verifying it.
-  * Make LocalVerifier expire cached public keys after 6 hours by default.
-  * Allow LocalVerifier to take a user-specified cache object so that public
-    keys can be stored in e.g. memcached.
-  * Update to the latest issuer-key-fetch protocol (using /.well-known/vep).
-  * Add InvalidIssuerError to report on invalid or untrusted issuers.
-  * Clean up the internal JWT interface.  It now uses module-level functions
-    rather than classmethods.
-
-
-0.2.1 - 2011-12-16
-==================
-
- * Use M2Crypto for faster DSA operations.
- * DummyVerifier: fix hex formatting for compatability with jwcrypto.
- * DummyVerifier: don't emit FutureWarning on initialisation.
-
-
-0.2.0 - 2011-12-07
-==================
-
- * do more validation of the assertion before checking the certificates,
-   to avoid expensive crypto ops for things we know to be invalid.
- * implement DummyVerifier class to aid in testing, both of this package
-   and of packages that are using PyVEP.
- * add exception hierarchy in vep.errors, so that calling code can easily
-   tell why verification failed.
-
-
-0.1.1 - 2011-12-01
-==================
-
- * add "diresworb.org" to default list of trusted secondaries.
- * implement additional signature algorithms.
- * if "hostname/.well-known/host-meta" gives a 404, fall back to "hostname/pk"
-   to find the public key.
-
-
-0.1.0 - 2011-11-23
-==================
-
- * initial release.
-
+  * Split certificate loading and caching into a separate class, in
+    browserid.certificates:CertificatesManager.
+  * Removed the DummyVerifier class in favour of supporting functions
+    in browserid.tests.support.

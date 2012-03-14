@@ -14,7 +14,7 @@ requires = ['M2Crypto']
 
 setup(name='PyBrowserID',
       version='0.4.0',
-      description='Python library for the BrowseriD Protocol',
+      description='Python library for the BrowserID Protocol',
       long_description=README + '\n\n' + CHANGES,
       license='MPLv2.0',
       classifiers=[
