@@ -111,8 +111,8 @@ def make_assertion(email, audience, issuer=None, exp=None,
     email_pub, email_priv = email_keypair
     # Get private key for the hostname so we can sign it.
     if issuer_keypair is None:
-        iss_keypair = get_keypair(issuer)
-    iss_pub, iss_priv = iss_keypair
+        issuer_keypair = get_keypair(issuer)
+    iss_pub, iss_priv = issuer_keypair
 
     # Generate the assertion, signed with email's public key.
     assertion = {
