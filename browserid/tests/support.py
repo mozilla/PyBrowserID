@@ -91,7 +91,7 @@ def get_keypair(hostname):
 
 def make_assertion(email, audience, issuer=None, exp=None,
                     assertion_sig=None, certificate_sig=None,
-                    new_style=True):
+                    new_style=True, email_keypair=None, issuer_keypair=None):
     """Generate a new dummy assertion for the given email address.
 
     This method lets you generate BrowserID assertions using dummy private
@@ -106,9 +106,14 @@ def make_assertion(email, audience, issuer=None, exp=None,
     if exp is None:
         exp = int((time.time() + 60) * 1000)
     # Get private key for the email address itself.
-    email_pub, email_priv = get_keypair(email)
+    if email_keypair is None:
+        email_keypair = get_keypair(email)
+    email_pub, email_priv = email_keypair
     # Get private key for the hostname so we can sign it.
-    iss_pub, iss_priv = get_keypair(issuer)
+    if issuer_keypair is None:
+        iss_keypair = get_keypair(issuer)
+    iss_pub, iss_priv = iss_keypair
+
     # Generate the assertion, signed with email's public key.
     assertion = {
         "exp": exp,
