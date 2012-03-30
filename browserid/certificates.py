@@ -49,7 +49,7 @@ class CertificatesManager(object):
 
 
 class FIFOCache(object):
-    """A simple in-memory FIFO cache for BrowseriD public keys.
+    """A simple in-memory FIFO cache for BrowserID public keys.
 
     This is a *very* simple in-memory FIFO cache, used as the default object
     for caching BrowserID public keys in the LocalVerifier.  Items are kept

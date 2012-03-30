@@ -6,8 +6,7 @@ import re
 import fnmatch
 
 from browserid.errors import AudienceMismatchError
-from browserid.utils import (secure_urlopen,
-                             unbundle_certs_and_assertion,
+from browserid.utils import (unbundle_certs_and_assertion,
                              decode_json_bytes)
 
 
