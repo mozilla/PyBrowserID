@@ -23,7 +23,6 @@ from browserid.errors import (TrustError,
                               ExpiredSignatureError,
                               InvalidSignatureError,
                               AudienceMismatchError)
-from browserid.tests.test_certificates import BROWSERID_PK_PY
 
 # This is an old assertion I generated on myfavoritebeer.org.
 # It's expired and signed with an old private key.
@@ -129,9 +128,8 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify_certificate_chain, certs)
 
-    @patch('browserid.certificates.fetch_public_key')
-    def test_well_known_doc_with_public_key(self, fetch_public_key):
-        fetch_public_key.return_value = BROWSERID_PK_PY['public-key']
+    @patch('browserid.certificates.fetch_public_key', fetch_public_key)
+    def test_well_known_doc_with_public_key(self):
         assertion = make_assertion("t@m.com", "http://e.com")
         self.assertTrue(self.verifier.verify(assertion))
 
