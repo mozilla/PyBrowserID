@@ -76,38 +76,6 @@ class TestingServer(object):
 
 class TestUtils(unittest.TestCase):
 
-    def test_secure_urlopen(self):
-        server = TestingServer()
-        server.start()
-        try:
-            kwds = {"timeout": 1}
-            # We don't trust the server's certificate, so this fails
-            # if we're doing strong validation.
-            try:
-                with warnings.catch_warnings(record=True) as w:
-                    warnings.simplefilter("always")
-                    secure_urlopen(server.base_url, **kwds)
-            except ConnectionError:
-                # This means we have a system ca_certs file.
-                # The request is unverified and should therefore fail.
-                pass
-            else:
-                # This means we have no system ca_certs file.
-                # We issue a warning and forego verification.
-                self.assertEquals(len(w), 1)  # pragma: nocover
-            # The certificate doesn't belong to localhost, so this fails.
-            kwds["ca_certs"] = server.certfile
-            self.assertRaises(ConnectionError,
-                              secure_urlopen, server.base_url, **kwds)
-            # Set a valid cert for local host, trust it, we succeed.
-            server.certfile = _filepath("certs/localhost.crt")
-            server.keyfile = _filepath("certs/localhost.key")
-            kwds["ca_certs"] = server.certfile
-            self.assertEquals(secure_urlopen(server.base_url, **kwds).read(),
-                              "OK")
-        finally:
-            server.shutdown()
-
     def test_encode_decode_bytes(self):
         self.assertEquals("HELLO", decode_bytes(encode_bytes("HELLO")))
         self.assertEquals("HELLO", decode_bytes(encode_bytes(u"HELLO")))

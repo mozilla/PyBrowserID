@@ -3,13 +3,13 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import time
-import json
 import unittest
 import warnings
 
+from mock import Mock, patch
+
 import browserid
-from browserid.tests.support import (patched_urlopen,
-                                     patched_key_fetching,
+from browserid.tests.support import (patched_key_fetching,
                                      get_keypair,
                                      fetch_public_key,
                                      make_assertion)
@@ -22,8 +22,8 @@ from browserid.errors import (TrustError,
                               ConnectionError,
                               ExpiredSignatureError,
                               InvalidSignatureError,
-                              InvalidIssuerError,
                               AudienceMismatchError)
+from browserid.tests.test_certificates import BROWSERID_PK_PY
 
 # This is an old assertion I generated on myfavoritebeer.org.
 # It's expired and signed with an old private key.
@@ -121,90 +121,6 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         # There should be a warning about using this verifier.
         self.assertEquals(w[0].category, FutureWarning)
 
-    def test_error_while_fetching_public_key(self):
-        with patched_urlopen(exc=RuntimeError("TESTING")):
-            self.assertRaises(ConnectionError,
-                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
-
-    def test_missing_well_known_document(self):
-        with patched_urlopen(exc=RuntimeError("404 Not Found")):
-            self.assertRaises(InvalidIssuerError,
-                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
-
-    def test_malformed_well_known_document(self):
-        # patch urlopen
-        def urlopen(url, data):
-            class response(object):
-                @staticmethod
-                def read():
-                    return "I AINT NO JSON, FOOL!"
-            return response
-
-        with patched_urlopen(urlopen):
-            self.assertRaises(InvalidIssuerError,
-                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
-
-    def test_malformed_pub_key_document(self):
-        called = []
-
-        def urlopen(url, data):
-            # First call must raise 404 so it will look for /pk.
-            # Second call must return invalid JSON.
-            class response(object):
-                @staticmethod
-                def read():
-                    if not called:
-                        called.append(True)
-                        raise ValueError("404 Not Found")
-                    return "I AINT NO JSON, FOOL!"
-            return response
-
-        with patched_urlopen(urlopen):
-            self.assertRaises(InvalidIssuerError,
-                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
-
-    def test_well_known_doc_with_no_public_key(self):
-        def urlopen(url, data):
-            class response(object):
-                @staticmethod
-                def read():
-                    return "{}"
-            return response
-
-        with patched_urlopen(urlopen):
-            self.assertRaises(InvalidIssuerError,
-                              self.verifier.verify, EXPIRED_ASSERTION, now=0)
-
-    def test_well_known_doc_with_public_key(self):
-        #  The browserid.org server doesn't currently have /.well-known/browserid.
-        #  This simulates it with a dummy key.
-        def urlopen(url, data):  # NOQA
-            class response(object):
-                @staticmethod
-                def read():
-                    key = fetch_public_key("browserid.org")
-                    return json.dumps({"public-key": key})
-            return response
-
-        with patched_urlopen(urlopen):
-            assertion = make_assertion("t@m.com", "http://e.com")
-            self.assertTrue(self.verifier.verify(assertion))
-
-    def test_handling_of_invalid_content_length_header_from_server(self):
-        def urlopen(url, data):
-            class response(object):
-                @staticmethod
-                def info():
-                    return {"Content-Length": "forty-two"}
-                @staticmethod  # NOQA
-                def read(size):
-                    raise RuntimeError  # pragma: nocover
-            return response
-
-        with patched_urlopen(urlopen):
-            self.assertRaises(ConnectionError, self.verifier.verify,
-                              EXPIRED_ASSERTION, now=0)
-
     def test_error_handling_in_verify_certificate_chain(self):
         self.assertRaises(ValueError,
                           self.verifier.verify_certificate_chain, [])
@@ -213,76 +129,53 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify_certificate_chain, certs)
 
+    @patch('browserid.certificates.fetch_public_key')
+    def test_well_known_doc_with_public_key(self, fetch_public_key):
+        fetch_public_key.return_value = BROWSERID_PK_PY['public-key']
+        assertion = make_assertion("t@m.com", "http://e.com")
+        self.assertTrue(self.verifier.verify(assertion))
+
 
 class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
         self.verifier = RemoteVerifier(["*"])
 
+    @patch('browserid.verifiers.remote.requests')
+    def _verify(self, requests, response_text='', assertion=EXPIRED_ASSERTION,
+                status_code=200):
+        response = Mock()
+        response.text = response_text
+        response.status_code = status_code
+        requests.post.return_value = response
+
+        return self.verifier.verify(assertion)
+
     def test_handling_of_valid_response_from_server(self):
-        def urlopen(url, data):
-            class response(object):
-                @staticmethod
-                def read():
-                    return '{"email": "t@m.com", '\
-                           ' "status": "okay", '\
-                           ' "audience": "http://myfavoritebeer.org"}'
-            return response
-
-        with patched_urlopen(urlopen):
-            data = self.verifier.verify(EXPIRED_ASSERTION)
-            self.assertEquals(data["email"], "t@m.com")
-
-    def test_handling_of_invalid_content_length_header_from_server(self):
-        def urlopen(url, data):
-            class response(object):
-                @staticmethod
-                def info():
-                    return {"Content-Length": "forty-two"}
-                @staticmethod  # NOQA
-                def read(size):
-                    raise RuntimeError  # pragma: nocover
-            return response
-
-        with patched_urlopen(urlopen):
-            self.assertRaises(ConnectionError,
-                              self.verifier.verify, EXPIRED_ASSERTION)
+        response_text = ('{"email": "t@m.com", "status": "okay", '
+                         '"audience": "http://myfavoritebeer.org"}')
+        data = self._verify(response_text=response_text)
+        self.assertEquals(data["email"], "t@m.com")
 
     def test_handling_of_invalid_json_from_server(self):
-        def urlopen(url, data):
-            class response(object):
-                @staticmethod
-                def read():
-                    return "SERVER RETURNS SOMETHING THAT ISNT JSON"
-            return response
+        with self.assertRaises(ConnectionError):
+            self._verify(response_text='SERVER RETURNS SOMETHING THAT ISNT JSON')
 
-        with patched_urlopen(urlopen):
-            self.assertRaises(ConnectionError,
-                              self.verifier.verify, EXPIRED_ASSERTION)
+    @patch('browserid.verifiers.remote.requests')
+    def test_handling_of_incorrect_audience_returned_by_server(self, requests):
+        response_text = ('{"email": "t@m.com", "status": "okay", '
+                         '"audience": "WRONG"}')
+        with self.assertRaises(AudienceMismatchError):
+            self._verify(response_text=response_text)
 
-    def test_handling_of_incorrect_audience_returned_by_server(self):
-        def urlopen(url, data):
-            class response(object):
-                @staticmethod
-                def read():
-                    return '{"email": "t@m.com", '\
-                           ' "status": "okay", '\
-                           '"audience": "WRONG"}'
-            return response
-
-        with patched_urlopen(urlopen):
-            self.assertRaises(AudienceMismatchError,
-                              self.verifier.verify, EXPIRED_ASSERTION)
-
-    def test_handling_of_500_error_from_server(self):
-        with patched_urlopen(exc=ConnectionError("500 Server Error")):
-            self.assertRaises(ValueError,
-                            self.verifier.verify, EXPIRED_ASSERTION)
+    @patch('browserid.verifiers.remote.requests')
+    def test_handling_of_500_error_from_server(self, requests):
+        with self.assertRaises(ValueError):
+            self._verify(status_code=500)
 
     def test_handling_of_503_error_from_server(self):
-        with patched_urlopen(exc=ConnectionError("503 Back Off")):
-            self.assertRaises(ConnectionError, self.verifier.verify,
-                              EXPIRED_ASSERTION)
+        with self.assertRaises(ConnectionError):
+            self._verify(status_code=503)
 
 
 class TestDummyVerifier(unittest.TestCase, VerifierTestCases):

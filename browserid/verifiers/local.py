@@ -10,8 +10,7 @@ from browserid.verifiers import Verifier
 from browserid.certificates import CertificatesManager
 from browserid.utils import  unbundle_certs_and_assertion
 from browserid.errors import (InvalidSignatureError,
-                              ExpiredSignatureError,
-                              AudienceMismatchError)
+                              ExpiredSignatureError)
 
 
 DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
