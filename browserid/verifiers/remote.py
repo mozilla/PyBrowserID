@@ -4,15 +4,23 @@
 
 import json
 
+import requests
+from requests.exceptions import RequestException
+
 from browserid.verifiers import Verifier
-from browserid.utils import (secure_urlopen,
-                             decode_json_bytes,
-                             unbundle_certs_and_assertion)
 from browserid.errors import (InvalidSignatureError,
                               ConnectionError,
                               AudienceMismatchError)
 
 BROWSERID_VERIFIER_URL = "https://browserid.org/verify"
+
+
+def _post(url, params):
+    """Send HTTP POST with requests."""
+    try:
+        return requests.post(url, params)
+    except RequestException, e:
+        raise ConnectionError(str(e))
 
 
 class RemoteVerifier(Verifier):
@@ -48,33 +56,20 @@ class RemoteVerifier(Verifier):
         # If no explicit audience was given, this will also parse it out
         # for inclusion in the request to the remote verifier service.
         audience = self.check_audience(assertion, audience)
-        # Encode the data into x-www-form-urlencoded.
-        post_data = {"assertion": assertion, "audience": audience}
-        post_data = "&".join("%s=%s" % item for item in post_data.items())
-        # Post it to the verifier.
+
+        response = _post(self.verifier_url, {'assertion': assertion,
+                                             'audience': audience})
+
+        # BrowserID server sends "500 server error" for broken assertions.
+        # For now, just translate that directly.  Should check by hand.
+        if response.status_code == 500:
+            raise ValueError('Malformed assertion')
+
         try:
-            resp = secure_urlopen(self.verifier_url, post_data)
-        except ConnectionError, e:
-            # BrowserID server sends "500 server error" for broken assertions.
-            # For now, just translate that directly.  Should check by hand.
-            if "500" in str(e):
-                raise ValueError("Malformed assertion")
-            raise
-        # Read the response, being careful to raise an appropriate
-        # error if the server does something funny.
-        try:
-            try:
-                info = resp.info()
-            except AttributeError:
-                info = {}
-            content_length = info.get("Content-Length")
-            if content_length is None:
-                data = resp.read()
-            else:
-                data = resp.read(int(content_length))
-            data = json.loads(data)
+            data = json.loads(response.text)
         except ValueError:
             raise ConnectionError("server returned invalid response")
+
         # Did it come back clean?
         if data.get('status') != "okay":
             raise InvalidSignatureError(str(data))
