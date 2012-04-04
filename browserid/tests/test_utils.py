@@ -3,16 +3,14 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
-import unittest
 import threading
 import socket
 import ssl
-import warnings
 
-from browserid.errors import ConnectionError
 from browserid.utils import secure_urlopen, encode_bytes, decode_bytes
 from browserid.utils import encode_json_bytes, decode_json_bytes
 from browserid.utils import get_assertion_info
+from browserid.tests.support import unittest
 
 
 def _filepath(name):

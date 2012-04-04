@@ -1,11 +1,11 @@
 import json
-import unittest
 
 from mock import Mock, patch
 from requests.exceptions import RequestException
 
 from browserid.certificates import fetch_public_key
 from browserid.errors import ConnectionError, InvalidIssuerError
+from browserid.tests.support import unittest
 
 
 # Retrieved from browserid.org on April 3rd 2012

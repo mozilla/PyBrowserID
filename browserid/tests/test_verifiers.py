@@ -3,7 +3,6 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import time
-import unittest
 import warnings
 
 from mock import Mock, patch
@@ -12,7 +11,7 @@ import browserid
 from browserid.tests.support import (patched_key_fetching,
                                      get_keypair,
                                      fetch_public_key,
-                                     make_assertion)
+                                     make_assertion, unittest)
 from browserid import jwt
 from browserid import RemoteVerifier, LocalVerifier
 from browserid.certificates import FIFOCache, CertificatesManager

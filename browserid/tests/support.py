@@ -12,6 +12,13 @@ from browserid import certificates
 from browserid import jwt
 from browserid.verifiers import remote
 
+# if unittest2 isn't available, assume that we are python 2.7
+try:
+    import unittest2 as unittest
+except:
+    import unittest  # NOQA
+
+
 # These are values used to generate dummy DSA keys.
 # I took them directly from the javacript jwcrypto source code, which claims:
 #    """
