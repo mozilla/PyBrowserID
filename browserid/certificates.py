@@ -5,10 +5,11 @@ import json
 import collections
 import threading
 import time
-
 from urlparse import urljoin
 
-from browserid.utils import secure_urlopen
+import requests
+from requests.exceptions import RequestException
+
 from browserid.errors import (ConnectionError,
                               InvalidIssuerError)
 
@@ -141,71 +142,44 @@ class FIFOCache(object):
         return len(self.items_map)
 
 
-def fetch_public_key(hostname, well_known_url=None):
+def _get(url):
+    """Fetch resource with requests."""
+    try:
+        return requests.get(url)
+    except RequestException, e:
+        raise ConnectionError(str(e))
+
+
+def fetch_public_key(hostname, well_known_url=WELL_KNOWN_URL):
     """Fetch the BrowserID public key for the given hostname.
 
     This function uses the well-known BrowserID meta-data file to extract
     the public key for the given hostname.
     """
-    if well_known_url is None:
-        well_known_url = WELL_KNOWN_URL
+    hostname = 'https://%s' % hostname
 
-    hostname = "https://" + hostname
     # Try to find the public key.  If it can't be found then we
     # raise an InvalidIssuerError.  Any other connection-related
     # errors are passed back up to the caller.
-    try:
-        # Try to read the well-known browserid file to load the key.
+    response = _get(urljoin(hostname, well_known_url))
+    if response.status_code == 200:
         try:
-            browserid_url = urljoin(hostname, well_known_url)
-            browserid_data = urlread(browserid_url)
-        except ConnectionError, e:
-            if "404" not in str(e):
-                raise
-            # The well-known file was not found, try falling back to
-            # just "/pk".  Not really a good idea, but that's currently
-            # the only way to get browserid.org's public key.
-            pubkey_url = urljoin(hostname, "/pk")
-            key = urlread(urljoin(hostname, pubkey_url))
+            key = json.loads(response.text)['public-key']
+        except (ValueError, KeyError):
+            raise InvalidIssuerError('Host %r has malformed public key '
+                                     'document' % hostname)
+    else:
+        # The well-known file was not found, try falling back to
+        # just "/pk".
+        response = _get(urljoin(hostname, '/pk'))
+        if response.status_code == 200:
             try:
-                key = json.loads(key)
+                key = json.loads(response.text)
             except ValueError:
-                msg = "Host %r has malformed public key document"
-                raise InvalidIssuerError(msg % (hostname,))
+                raise InvalidIssuerError('Host %r has malformed BrowserID '
+                                         'metadata document' % hostname)
         else:
-            # The well-known file was found, it must contain the key
-            # data as part of its JSON response.
-            try:
-                key = json.loads(browserid_data)["public-key"]
-            except (ValueError, KeyError):
-                msg = "Host %r has malformed BrowserID metadata document"
-                raise InvalidIssuerError(msg % (hostname,))
-        return key
-    except ConnectionError, e:
-        if "404" not in str(e):
-            raise
-        msg = "Host %r does not declare support for BrowserID" % (hostname,)
-        raise InvalidIssuerError(msg)
+            raise InvalidIssuerError('Host %r does not declare support for '
+                                     'BrowserID' % hostname)
 
-
-def urlread(url, data=None):
-    """Read the given URL, return response as a string."""
-    # Anything that goes wrong inside this function will
-    # be re-raised as an instance of ConnectionError.
-    try:
-        resp = secure_urlopen(url, data)
-        try:
-            info = resp.info()
-        except AttributeError:
-            info = {}
-        content_length = info.get("Content-Length")
-        if content_length is None:
-            data = resp.read()
-        else:
-            try:
-                data = resp.read(int(content_length))
-            except ValueError:
-                raise ConnectionError("server sent invalid content-length")
-    except Exception, e:
-        raise ConnectionError(str(e))
-    return data
+    return key
