@@ -147,21 +147,6 @@ def make_assertion(email, audience, issuer=None, exp=None,
 
 
 @contextmanager
-def patched_urlopen(replacement=None, exc=None, value=None):
-    def _urlopen(*args, **kwargs):
-        if exc is not None:
-            raise exc
-        return value
-    if replacement is None:
-        replacement = _urlopen
-    old_urlopen = (certificates.secure_urlopen, remote.secure_urlopen)
-    certificates.secure_urlopen = replacement
-    remote.secure_urlopen = replacement
-    yield
-    certificates.secure_urlopen, remote.secure_urlopen = old_urlopen
-
-
-@contextmanager
 def patched_key_fetching(replacement=None, exc=None):
     """Patch the key fetching mechanism with the given callable.
 

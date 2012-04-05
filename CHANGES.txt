@@ -3,6 +3,7 @@
 
   * add support of requests rather than custom code for ssl checking when
     retrieving certificates.
+  * removed patch utility for secure_urlopen (we are now using requests)
 
 0.4.0 - 2012-03-13
 ==================
