@@ -101,6 +101,7 @@ class RSKey(object):
         if obj is not None:
             self.rsa = obj
         else:
+            _check_keys(data, ('e', 'n'))
             e = int2mpint(int(data["e"]))
             n = int2mpint(int(data["n"]))
             try:
@@ -156,6 +157,8 @@ class DSKey(object):
         if obj:
             self.dsa = obj
         else:
+            _check_keys(data, ('p', 'q', 'g', 'y'))
+
             self.p = p = long(data["p"], 16)
             self.q = q = long(data["q"], 16)
             self.g = g = long(data["g"], 16)
@@ -230,3 +233,10 @@ def int2mpint(x):
     # necessary if the number has its MSB set, to prevent it being mistaken
     # for a sign bit.  I do it uniformly since it's valid and simpler.
     return struct.pack(">I", len(bytes) + 1) + "\x00" + bytes
+
+
+def _check_keys(data, keys):
+    for key in keys:
+        if not key in data:
+            msg = 'missing %s in data - %s' % (key, str(data.keys()))
+            raise ValueError(msg)
