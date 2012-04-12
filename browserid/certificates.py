@@ -147,7 +147,8 @@ def _get(url):
     try:
         return requests.get(url)
     except RequestException, e:
-        raise ConnectionError(str(e))
+        msg = "Impossible to get %s. Reason: %s" % (url, str(e))
+        raise ConnectionError(msg)
 
 
 def fetch_public_key(hostname, well_known_url=WELL_KNOWN_URL):
