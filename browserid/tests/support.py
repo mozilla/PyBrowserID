@@ -10,7 +10,6 @@ from browserid.utils import encode_bytes, bundle_certs_and_assertion
 
 from browserid import certificates
 from browserid import jwt
-from browserid.verifiers import remote
 
 # if unittest2 isn't available, assume that we are python 2.7
 try:
