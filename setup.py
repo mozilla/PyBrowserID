@@ -13,7 +13,7 @@ with open(os.path.join(here, 'CHANGES.txt')) as f:
 requires = ['M2Crypto', 'requests']
 
 setup(name='PyBrowserID',
-      version='0.4.0',
+      version='0.5.0',
       description='Python library for the BrowserID Protocol',
       long_description=README + '\n\n' + CHANGES,
       license='MPLv2.0',
