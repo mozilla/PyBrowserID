@@ -132,6 +132,53 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         assertion = make_assertion("t@m.com", "http://e.com")
         self.assertTrue(self.verifier.verify(assertion))
 
+    @patch('browserid.certificates.fetch_public_key', fetch_public_key)
+    def test_audience_verification(self):
+
+        # create an assertion with the audience set to http://persona.org for
+        # the tests. This assertion is only valid for this audience.
+        assertion = make_assertion("alexis@mozilla.com", "http://persona.org")
+
+        # we don't set any audience explicitely here
+        verifier = LocalVerifier(warning=False)
+        
+        # specifying the audience on verifier.verify uses it.
+        self.assertRaises(AudienceMismatchError, verifier.verify, assertion, 
+                          audience="*.example.com")
+
+        # if we change the audience to the expected one, the assertion is
+        # considered valid
+        self.assertTrue(verifier.verify(assertion, audience="persona.org"))
+
+        # specifying the audience when creating the verifier AND when calling
+        # verifier.verify.
+        verifier = LocalVerifier(["*.example.com"], warning=False)
+        self.assertRaises(AudienceMismatchError, verifier.verify, assertion, 
+                          audience="*.example.com")
+
+        # specifying a difference audience at instanciation and at verification,
+        # only the last one is used.
+        self.assertTrue(verifier.verify(assertion, audience="persona.org"))
+
+        # overwritting the audience with an invalid one (we are waiting for
+        # persona.org but getting example.com) raises an error
+        self.assertRaises(AudienceMismatchError, verifier.verify,
+                          audience="persona.org",
+                          assertion=make_assertion("alexis@mozilla.com",
+                                                   "http://example.com"))
+
+        # the assertion is valid for http://persona.org; the verifier is
+        # configured to accept this audience so it should validate
+        verifier = LocalVerifier(["persona.org"], warning=False)
+        self.assertTrue(verifier.verify(assertion))
+
+        # but if we ask explicitely for a different audience (the assertion is
+        # not accepted, even if the instance is configured so)
+        self.assertRaises(AudienceMismatchError, verifier.verify,
+                          assertion, audience="example.com")
+
+
+
 
 class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
 
