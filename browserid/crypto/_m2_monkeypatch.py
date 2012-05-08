@@ -1,6 +1,6 @@
 #
 #  This monkey-patches M2Crypto's RSA and DSA support to allow us
-#  to create keys directly from a given set of parameters.  It's
+#  to create keys directly from a given set of parameters.
 #  It's based on the following patch from the M2Crypt bugtracker:
 #
 #      https://bugzilla.osafoundation.org/show_bug.cgi?id=12981

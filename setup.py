@@ -10,7 +10,7 @@ with open(os.path.join(here, 'README.rst')) as f:
 with open(os.path.join(here, 'CHANGES.txt')) as f:
     CHANGES = f.read()
 
-requires = ['M2Crypto', 'requests']
+requires = ['requests']
 
 tests_require = requires + ['mock']
 

@@ -14,7 +14,7 @@ from browserid import jwt
 # if unittest2 isn't available, assume that we are python 2.7
 try:
     import unittest2 as unittest
-except:
+except ImportError:
     import unittest  # NOQA
 
 
