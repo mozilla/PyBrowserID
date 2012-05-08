@@ -2,74 +2,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import os
-import threading
-import socket
-import ssl
-
-from browserid.utils import secure_urlopen, encode_bytes, decode_bytes
+from browserid.utils import encode_bytes, decode_bytes
 from browserid.utils import encode_json_bytes, decode_json_bytes
 from browserid.utils import get_assertion_info
 from browserid.tests.support import unittest
-
-
-def _filepath(name):
-    return os.path.join(os.path.dirname(__file__), name)
-
-
-class TestingServer(object):
-    """Class to spin up a local SSL server with a self-signed certificate.
-
-    This class runs a simple SSL server on localhost:8080, which will answer
-    "OK" to any and all requests.  It uses a self-signed certificate from the
-    file self.certfile.
-    """
-
-    def __init__(self):
-        self.running = False
-        self.certfile = _filepath("certs/selfsigned.crt")
-        self.keyfile = _filepath("certs/selfsigned.key")
-
-    def start(self):
-        self.socket = socket.socket()
-        self.socket.bind(("localhost", 8080))
-        self.socket.listen(1)
-        self.running = True
-        self.runthread = threading.Thread(target=self.run)
-        self.runthread.start()
-        self.base_url = "https://localhost:8080"
-
-    def run(self):
-        while self.running:
-            try:
-                sock, addr = self.socket.accept()
-                sock = ssl.wrap_socket(sock,
-                                       server_side=True,
-                                       certfile=self.certfile,
-                                       keyfile=self.keyfile,
-                                       ssl_version=ssl.PROTOCOL_SSLv3)
-                try:
-                    sock.sendall("HTTP/1.1 200 OK\r\n")
-                    sock.sendall("Content-Type: text/plain\r\n")
-                    sock.sendall("Content-Length: 2\r\n")
-                    sock.sendall("\r\n")
-                    sock.sendall("OK")
-                finally:
-                    sock.shutdown(socket.SHUT_RDWR)
-                    sock.close()
-            except Exception:
-                pass
-
-    def shutdown(self):
-        self.running = False
-        try:
-            secure_urlopen(self.base_url, timeout=1).read()
-        except Exception:
-            pass
-        self.socket.close()
-        self.runthread.join()
-        del self.runthread
-        del self.base_url
 
 
 class TestUtils(unittest.TestCase):

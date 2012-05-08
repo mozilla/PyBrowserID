@@ -141,9 +141,9 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
 
         # we don't set any audience explicitely here
         verifier = LocalVerifier(warning=False)
-        
+
         # specifying the audience on verifier.verify uses it.
-        self.assertRaises(AudienceMismatchError, verifier.verify, assertion, 
+        self.assertRaises(AudienceMismatchError, verifier.verify, assertion,
                           audience="*.example.com")
 
         # if we change the audience to the expected one, the assertion is
@@ -153,10 +153,10 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         # specifying the audience when creating the verifier AND when calling
         # verifier.verify.
         verifier = LocalVerifier(["*.example.com"], warning=False)
-        self.assertRaises(AudienceMismatchError, verifier.verify, assertion, 
+        self.assertRaises(AudienceMismatchError, verifier.verify, assertion,
                           audience="*.example.com")
 
-        # specifying a difference audience at instanciation and at verification,
+        # specifying a different audience at instanciation and at verification,
         # only the last one is used.
         self.assertTrue(verifier.verify(assertion, audience="persona.org"))
 
@@ -176,8 +176,6 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         # not accepted, even if the instance is configured so)
         self.assertRaises(AudienceMismatchError, verifier.verify,
                           assertion, audience="example.com")
-
-
 
 
 class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
@@ -203,7 +201,7 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
 
     def test_handling_of_invalid_json_from_server(self):
         with self.assertRaises(ConnectionError):
-            self._verify(response_text='SERVER RETURNS SOMETHING THAT ISNT JSON')
+            self._verify(response_text='SERVER RETURNS INVALID JSON')
 
     @patch('browserid.verifiers.remote.requests')
     def test_handling_of_incorrect_audience_returned_by_server(self, requests):
