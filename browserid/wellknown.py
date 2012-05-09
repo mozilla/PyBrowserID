@@ -16,11 +16,10 @@ from browserid.errors import (ConnectionError,
 WELL_KNOWN_URL = "/.well-known/browserid"
 
 
-class CertificatesManager(object):
-    """A simple certificate handler. It acts like a dictionary of
-    certificates. The key being the hostname and the value the certificate
-    itself. the certificate manager populates itself automatically, so you
-    don't need to fetch the public key when you get a KeyError.
+class WellKnownManager(object):
+    """A simple well-known BrowserID file handler. It acts like a dict of
+    BrowserID well-known files. This manager populates itself automatically,
+    so you don't need to fetch the file when you get a KeyError.
     """
 
     def __init__(self, cache=None, verify=None, **kwargs):
@@ -32,22 +31,31 @@ class CertificatesManager(object):
     def __getitem__(self, hostname):
         try:
             # Use a cached key if available.
-            (error, key) = self.cache[hostname]
+            (error, support) = self.cache[hostname]
         except KeyError:
             # Fetch the key afresh from the specified server.
             # Cache any failures so we're not flooding bad hosts.
-            error = key = None
+            error = support = None
             try:
-                key = self.fetch_public_key(hostname)
+                support = self.fetch_wellknown_file(hostname)
             except Exception, e:  # NOQA
                 error = e
-            self.cache[hostname] = (error, key)
+            self.cache[hostname] = (error, support)
         if error is not None:
             raise error
+        return support
+
+    def get_key(self, hostname):
+        try:
+            key = self[hostname]['public-key']
+        except KeyError:
+            raise InvalidIssuerError(
+                    "Host %r doesn't provide a public key" % hostname)
+
         return key
 
-    def fetch_public_key(self, hostname):
-        return fetch_public_key(hostname, verify=self.verify)
+    def fetch_wellknown_file(self, hostname):
+        return fetch_wellknown_file(hostname, verify=self.verify)
 
 
 class FIFOCache(object):
@@ -75,7 +83,7 @@ class FIFOCache(object):
         This method retrieves the value cached under the given key, evicting
         it from the cache if expired.
 
-        If the key doesn't exist, it loads it using the fetch_public_key
+        If the key doesn't exist, it loads it using the fetch_wellknown_file
         method.
         """
         (timestamp, value) = self.items_map[key]
@@ -152,26 +160,25 @@ def _get(url, verify):
         raise ConnectionError(msg)
 
 
-def fetch_public_key(hostname, well_known_url=WELL_KNOWN_URL, verify=None):
-    """Fetch the BrowserID public key for the given hostname.
+def fetch_wellknown_file(hostname, well_known_url=WELL_KNOWN_URL, verify=None):
+    """Fetch the BrowserID well-known file for the given hostname.
 
-    This function uses the well-known BrowserID meta-data file to extract
-    the public key for the given hostname.
+    This function fetches and parses the well-known BrowserID meta-data file.
 
     :param verify: verify the certificate when requesting ssl resources
     """
     hostname = 'https://%s' % hostname
 
-    # Try to find the public key.  If it can't be found then we
+    # Try to find the support file.  If it can't be found then we
     # raise an InvalidIssuerError.  Any other connection-related
     # errors are passed back up to the caller.
     response = _get(urljoin(hostname, well_known_url), verify=verify)
     if response.status_code == 200:
         try:
-            key = json.loads(response.text)['public-key']
-        except (ValueError, KeyError):
-            raise InvalidIssuerError('Host %r has malformed public key '
-                                     'document' % hostname)
+            data = json.loads(response.text)
+        except ValueError:
+            raise InvalidIssuerError('Host %r has malformed BrowserID '
+                                     'metadata document' % hostname)
     else:
         # The well-known file was not found, try falling back to
         # just "/pk".
@@ -182,8 +189,10 @@ def fetch_public_key(hostname, well_known_url=WELL_KNOWN_URL, verify=None):
             except ValueError:
                 raise InvalidIssuerError('Host %r has malformed BrowserID '
                                          'metadata document' % hostname)
+
+            data = {"public-key": key}
         else:
             raise InvalidIssuerError('Host %r does not declare support for '
                                      'BrowserID' % hostname)
 
-    return key
+    return data

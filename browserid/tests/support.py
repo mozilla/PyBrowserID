@@ -8,7 +8,7 @@ from contextlib import contextmanager
 
 from browserid.utils import encode_bytes, bundle_certs_and_assertion
 
-from browserid import certificates
+from browserid import wellknown
 from browserid import jwt
 
 # if unittest2 isn't available, assume that we are python 2.7
@@ -50,14 +50,14 @@ def _hex(value):
     return value
 
 
-def fetch_public_key(hostname, verify=None):
-    """Fetch the BrowserID public key for the given hostname.
+def fetch_wellknown_file(hostname, verify=None):
+    """Fetch the BrowserID support file for the given hostname.
 
-    Actually, this implementation generates the key locally based on
+    Actually, this implementation generates a key locally based on
     a hash of the hostname.  This lets us exercise all the crypto code
     while using predictable local values.
     """
-    return get_keypair(hostname)[0]
+    return {"public-key": get_keypair(hostname)[0]}
 
 
 def get_keypair(hostname):
@@ -146,7 +146,7 @@ def make_assertion(email, audience, issuer=None, exp=None,
 
 
 @contextmanager
-def patched_key_fetching(replacement=None, exc=None):
+def patched_wellknown_fetching(replacement=None, exc=None):
     """Patch the key fetching mechanism with the given callable.
 
     This is to allow easier testing.
@@ -157,8 +157,8 @@ def patched_key_fetching(replacement=None, exc=None):
     if exc is not None:
         replacement = raise_exception
     if replacement is None:
-        replacement = fetch_public_key
-    old_callable = certificates.fetch_public_key
-    certificates.fetch_public_key = replacement
+        replacement = fetch_wellknown_file
+    old_callable = wellknown.fetch_wellknown_file
+    wellknown.fetch_wellknown_file = replacement
     yield
-    certificates.fetch_public_key = old_callable
+    wellknown.fetch_wellknown_file = old_callable

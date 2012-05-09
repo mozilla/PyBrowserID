@@ -3,7 +3,7 @@ import json
 from mock import Mock, patch
 from requests.exceptions import RequestException
 
-from browserid.certificates import fetch_public_key
+from browserid.wellknown import fetch_wellknown_file
 from browserid.errors import ConnectionError, InvalidIssuerError
 from browserid.tests.support import unittest
 
@@ -25,7 +25,7 @@ BROWSERID_PK_PY = json.loads(BROWSERID_PK)
 
 
 class TestFetchPublicKey(unittest.TestCase):
-    @patch('browserid.certificates.requests')
+    @patch('browserid.wellknown.requests')
     def _fetch(self, hostname, requests, well_known_url=None,
                side_effect=None, response_text='', status_code=200):
         response = Mock()
@@ -38,14 +38,22 @@ class TestFetchPublicKey(unittest.TestCase):
         if well_known_url is not None:
             kwargs['well_known_url'] = well_known_url
 
-        return fetch_public_key(hostname, **kwargs)
+        wellknown = fetch_wellknown_file(hostname, **kwargs)
+
+        try:
+            key = wellknown['public-key']
+        except KeyError:
+            raise InvalidIssuerError('Host %r has malformed public key '
+                                     'document' % hostname)
+
+        return key
 
     def test_connection_error(self):
         """If there is an error connecting, raise a ConnectionError."""
         with self.assertRaises(ConnectionError):
             self._fetch('test.com', side_effect=RequestException)
 
-    @patch('browserid.certificates.fetch_public_key')
+    @patch('browserid.wellknown.fetch_wellknown_file')
     def test_missing_well_known_document(self, fetch):
         with self.assertRaises(InvalidIssuerError):
             self._fetch('test.com', status_code=404)
@@ -67,10 +75,10 @@ class TestFetchPublicKey(unittest.TestCase):
             return response
         post.called = False
 
-        with patch('browserid.certificates.requests') as requests:
+        with patch('browserid.wellknown.requests') as requests:
             requests.post = post
             with self.assertRaises(InvalidIssuerError):
-                fetch_public_key('test.com')
+                fetch_wellknown_file('test.com')
 
     def test_well_known_doc_with_no_public_key(self):
         with self.assertRaises(InvalidIssuerError):

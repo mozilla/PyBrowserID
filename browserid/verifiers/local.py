@@ -7,7 +7,7 @@ import warnings
 
 from browserid import jwt
 from browserid.verifiers import Verifier
-from browserid.certificates import CertificatesManager
+from browserid.wellknown import WellKnownManager
 from browserid.utils import  unbundle_certs_and_assertion
 from browserid.errors import (InvalidSignatureError,
                               ExpiredSignatureError,
@@ -26,17 +26,14 @@ class LocalVerifier(Verifier):
     verify() method and let it work its magic.
     """
 
-    def __init__(self, audiences=None, trusted_secondaries=None, certs=None,
-                 warning=True):
+    def __init__(self, audiences=None, trusted_secondaries=None,
+                 wellknown_manager=None, warning=True):
         if trusted_secondaries is None:
             trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES
 
-        if certs is None:
-            certs = CertificatesManager()
-
         super(LocalVerifier, self).__init__(audiences)
         self.trusted_secondaries = trusted_secondaries
-        self.certs = certs
+        self.wellknown_manager = wellknown_manager or WellKnownManager()
 
         if warning:
             _emit_warning()
@@ -126,7 +123,7 @@ class LocalVerifier(Verifier):
         if now is None:
             now = int(time.time() * 1000)
         root_issuer = certificates[0].payload["iss"]
-        root_key = self.certs[root_issuer]
+        root_key = self.wellknown_manager.get_key(root_issuer)
         current_key = root_key
         for cert in certificates:
             if cert.payload["exp"] < now:
