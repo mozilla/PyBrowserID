@@ -141,6 +141,12 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertTrue(self.verifier.verify(assertion))
 
     @patch('browserid.wellknown.fetch_wellknown_file', fetch_wellknown_file)
+    def test_delegated_primary(self):
+        assertion = make_assertion("t@redirect.org", "http://persona.org",
+                issuer="delegated.org")
+        self.assertTrue(self.verifier.verify(assertion))
+
+    @patch('browserid.wellknown.fetch_wellknown_file', fetch_wellknown_file)
     def test_audience_verification(self):
 
         # create an assertion with the audience set to http://persona.org for

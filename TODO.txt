@@ -1,3 +1,3 @@
 
- * delegation of authority for a domain
+ * replace secure_urlopen with the "requests" library
 

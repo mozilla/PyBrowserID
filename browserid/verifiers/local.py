@@ -7,15 +7,11 @@ import warnings
 
 from browserid import jwt
 from browserid.verifiers import Verifier
-from browserid.wellknown import WellKnownManager
+from browserid.wellknown import WellKnownManager, DEFAULT_TRUSTED_SECONDARIES
 from browserid.utils import  unbundle_certs_and_assertion
 from browserid.errors import (InvalidSignatureError,
                               ExpiredSignatureError,
                               UnsupportedCertChainError)
-
-
-DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
-                               "dev.diresworb.org")
 
 
 class LocalVerifier(Verifier):
@@ -84,10 +80,11 @@ class LocalVerifier(Verifier):
             # No point doing all that crypto if we're going to fail out anyway.
             email = certificates[-1].payload["principal"]["email"]
             root_issuer = certificates[0].payload["iss"]
-            if root_issuer not in self.trusted_secondaries:
-                if not email.endswith("@" + root_issuer):
-                    msg = "untrusted root issuer: %s" % (root_issuer,)
-                    raise InvalidSignatureError(msg)
+            provider = email.split('@')[-1]
+            if not self.wellknown_manager.is_issuer_valid(provider,
+                    root_issuer, self.trusted_secondaries):
+                msg = "untrusted root issuer: %s" % (root_issuer,)
+                raise InvalidSignatureError(msg)
 
             # Verify the entire chain of certificates.
             cert = self.verify_certificate_chain(certificates, now=now)

@@ -3,9 +3,11 @@ import json
 from mock import Mock, patch
 from requests.exceptions import RequestException
 
-from browserid.wellknown import fetch_wellknown_file
+from browserid.wellknown import fetch_wellknown_file, WellKnownManager
 from browserid.errors import ConnectionError, InvalidIssuerError
 from browserid.tests.support import unittest
+from browserid.tests.support import (fetch_wellknown_file as
+        patched_wellknown_file)
 
 
 # Retrieved from browserid.org on April 3rd 2012
@@ -87,3 +89,35 @@ class TestFetchPublicKey(unittest.TestCase):
     def test_successful_fetch(self):
         key = self._fetch('test.com', response_text=BROWSERID_PK)
         self.assertEquals(key, BROWSERID_PK_PY['public-key'])
+
+
+class TestIssuerValidation(unittest.TestCase):
+    def setUp(self):
+        self.wellknown = WellKnownManager()
+
+    def test_trusted_secondaries(self):
+        self.assertTrue(self.wellknown.is_issuer_valid('test.com', 'browserid.org'))
+        self.assertFalse(self.wellknown.is_issuer_valid('test.com',
+            'browserid.org', trusted_secondaries=[], max_hops=0))
+
+    def test_hostname_issuer(self):
+        self.assertTrue(self.wellknown.is_issuer_valid('test.com', 'test.com'))
+        self.assertFalse(self.wellknown.is_issuer_valid('abc.com', 'test.com',
+            max_hops=0))
+
+    @patch('browserid.wellknown.fetch_wellknown_file', patched_wellknown_file)
+    def test_delegated_primary(self):
+        self.assertTrue(self.wellknown.is_issuer_valid('redirect.org',
+            'delegated.org'))
+
+    def test_disabled_delegated_primary(self):
+        self.assertFalse(self.wellknown.is_issuer_valid('redirect.org',          
+            'delegated.org', max_hops=0))
+
+    @patch('browserid.wellknown.fetch_wellknown_file', patched_wellknown_file)
+    def test_infinite_delegated_primary_recursion(self):
+        self.assertFalse(self.wellknown.is_issuer_valid('infinite.org', None))
+        self.assertRaises(RuntimeError, self.wellknown.is_issuer_valid,
+            'infinite.org', None, max_hops=None)
+
+ 

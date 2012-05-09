@@ -13,7 +13,10 @@ from requests.exceptions import RequestException
 from browserid.errors import (ConnectionError,
                               InvalidIssuerError)
 
+DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
+                               "dev.diresworb.org")
 WELL_KNOWN_URL = "/.well-known/browserid"
+DEFAULT_MAX_HOPS = 5
 
 
 class WellKnownManager(object):
@@ -56,6 +59,46 @@ class WellKnownManager(object):
 
     def fetch_wellknown_file(self, hostname):
         return fetch_wellknown_file(hostname, verify=self.verify)
+
+    def is_issuer_valid(self, hostname, issuer, trusted_secondaries=None,
+            max_hops=DEFAULT_MAX_HOPS):
+        """
+        This method allows you to check if a hostname is valid for an issuer.
+
+        There are three methods where this will return True:
+        * The hostname is the issuer
+        * The hostname is in the list of trusted secondaries
+        * When the hostname delegates to the issuer
+
+        You can disable the check for delegated primaries by setting max_hops
+        to 0.
+        """
+        if hostname == issuer:
+            return True
+
+        if trusted_secondaries is None:
+            trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES
+
+        if issuer in trusted_secondaries:
+            return True
+
+        if max_hops is not 0:
+            def _is_issuer_valid(hostname, issuer, current_hop=1,
+                    max_hops=DEFAULT_MAX_HOPS):
+                support = self[hostname]
+
+                if 'authority' in support and support['authority'] == issuer:
+                    return True
+
+                if max_hops is not None and current_hop >= max_hops:
+                    return False
+
+                return _is_issuer_valid(hostname, issuer,
+                        current_hop + 1, max_hops)
+
+            return _is_issuer_valid(hostname, issuer, max_hops=max_hops)
+
+        return False
 
 
 class FIFOCache(object):

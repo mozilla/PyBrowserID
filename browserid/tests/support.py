@@ -57,6 +57,13 @@ def fetch_wellknown_file(hostname, verify=None):
     a hash of the hostname.  This lets us exercise all the crypto code
     while using predictable local values.
     """
+
+    if hostname == "redirect.org":
+        return {"authority": "delegated.org"}
+
+    if hostname == "infinite.org":
+        return {"authority": "infinite.org"}
+
     return {"public-key": get_keypair(hostname)[0]}
 
 
