@@ -1,7 +1,8 @@
 0.6.0 - XXXX-XX-XX
 ==================
 
-  * Nothing yet...
+  * Remove ability to use a custom JWT parser class, it's not used and
+    adds needless complexity.
 
 0.5.0 - 2012-04-18
 ==================
