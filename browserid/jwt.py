@@ -18,10 +18,8 @@ from browserid.utils import decode_bytes, encode_bytes
 from browserid.utils import decode_json_bytes, encode_json_bytes
 
 
-def parse(jwt, cls=None):
+def parse(jwt):
     """Parse a JWT from a string."""
-    if cls is None:
-        cls = JWT
     algorithm, payload, signature = jwt.split(".")
     signed_data = algorithm + "." + payload
     try:
@@ -30,7 +28,7 @@ def parse(jwt, cls=None):
         raise ValueError("badly formed JWT")
     payload = decode_json_bytes(payload)
     signature = decode_bytes(signature)
-    return cls(algorithm, payload, signature, signed_data)
+    return JWT(algorithm, payload, signature, signed_data)
 
 
 def generate(payload, key):

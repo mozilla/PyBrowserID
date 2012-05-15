@@ -26,7 +26,7 @@ class LocalVerifier(Verifier):
     """
 
     def __init__(self, audiences=None, trusted_secondaries=None, certs=None,
-                 parser_cls=None, warning=True):
+                 warning=True):
         if trusted_secondaries is None:
             trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES
 
@@ -36,13 +36,12 @@ class LocalVerifier(Verifier):
         super(LocalVerifier, self).__init__(audiences)
         self.trusted_secondaries = trusted_secondaries
         self.certs = certs
-        self.parser_cls = parser_cls
 
         if warning:
             _emit_warning()
 
     def parse_jwt(self, data):
-        return jwt.parse(data, self.parser_cls)
+        return jwt.parse(data)
 
     def verify(self, assertion, audience=None, now=None):
         """Verify the given BrowserID assertion.

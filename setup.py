@@ -12,6 +12,8 @@ with open(os.path.join(here, 'CHANGES.txt')) as f:
 
 requires = ['M2Crypto', 'requests']
 
+tests_require = requires + ['mock']
+
 setup(name='PyBrowserID',
       version='0.5.0',
       description='Python library for the BrowserID Protocol',
@@ -29,5 +31,5 @@ setup(name='PyBrowserID',
       include_package_data=True,
       zip_safe=False,
       install_requires=requires,
-      tests_require=requires,
+      tests_require=tests_require,
       test_suite="browserid")
