@@ -23,7 +23,8 @@ class CertificatesManager(object):
     don't need to fetch the public key when you get a KeyError.
     """
 
-    def __init__(self, cache=None, **kwargs):
+    def __init__(self, cache=None, verify=None, **kwargs):
+        self.verify = verify
         if cache is None:
             cache = FIFOCache(**kwargs)
         self.cache = cache
@@ -46,7 +47,7 @@ class CertificatesManager(object):
         return key
 
     def fetch_public_key(self, hostname):
-        return fetch_public_key(hostname)
+        return fetch_public_key(hostname, verify=self.verify)
 
 
 class FIFOCache(object):
@@ -142,27 +143,29 @@ class FIFOCache(object):
         return len(self.items_map)
 
 
-def _get(url):
+def _get(url, verify):
     """Fetch resource with requests."""
     try:
-        return requests.get(url)
+        return requests.get(url, verify=verify)
     except RequestException, e:
         msg = "Impossible to get %s. Reason: %s" % (url, str(e))
         raise ConnectionError(msg)
 
 
-def fetch_public_key(hostname, well_known_url=WELL_KNOWN_URL):
+def fetch_public_key(hostname, well_known_url=WELL_KNOWN_URL, verify=None):
     """Fetch the BrowserID public key for the given hostname.
 
     This function uses the well-known BrowserID meta-data file to extract
     the public key for the given hostname.
+
+    :param verify: verify the certificate when requesting ssl resources
     """
     hostname = 'https://%s' % hostname
 
     # Try to find the public key.  If it can't be found then we
     # raise an InvalidIssuerError.  Any other connection-related
     # errors are passed back up to the caller.
-    response = _get(urljoin(hostname, well_known_url))
+    response = _get(urljoin(hostname, well_known_url), verify=verify)
     if response.status_code == 200:
         try:
             key = json.loads(response.text)['public-key']
@@ -172,7 +175,7 @@ def fetch_public_key(hostname, well_known_url=WELL_KNOWN_URL):
     else:
         # The well-known file was not found, try falling back to
         # just "/pk".
-        response = _get(urljoin(hostname, '/pk'))
+        response = _get(urljoin(hostname, '/pk'), verify=verify)
         if response.status_code == 200:
             try:
                 key = json.loads(response.text)
