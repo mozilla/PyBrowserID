@@ -50,7 +50,7 @@ def _hex(value):
     return value
 
 
-def fetch_public_key(hostname):
+def fetch_public_key(hostname, verify=None):
     """Fetch the BrowserID public key for the given hostname.
 
     Actually, this implementation generates the key locally based on
