@@ -14,8 +14,11 @@ having to install M2Crypto.
 """
 
 import struct
-from binascii import unhexlify
+from binascii import hexlify, unhexlify
 
+from M2Crypto import BIO
+
+from browserid.crypto._m2_monkeypatch import m2
 from browserid.crypto._m2_monkeypatch import DSA as _DSA
 from browserid.crypto._m2_monkeypatch import RSA as _RSA
 
@@ -23,10 +26,37 @@ from browserid.crypto._m2_monkeypatch import RSA as _RSA
 class Key(object):
     """Generic base class for Key objects."""
 
+    KEY_MODULE = None
+
+    @classmethod
+    def from_pem_data(cls, data=None, filename=None):
+        """Alternative constructor for loading from PEM format data."""
+        self = cls.__new__(cls)
+        if data is not None:
+            bio = BIO.MemoryBuffer(str(data))
+        elif filename is not None:
+            bio = BIO.openfile(filename)
+        else:
+            msg = "Please specify either 'data' or 'filename' argument."
+            raise ValueError(msg)
+        self.keyobj = self.KEY_MODULE.load_pub_key_bio(bio)
+        return self
+
+    def to_pem_data(self):
+        """Save the public key data to a PEM format string."""
+        b = BIO.MemoryBuffer()
+        try:
+            self.keyobj.save_pub_key_bio(b)
+            return b.getvalue()
+        finally:
+            b.close()
+
     def verify(self, signed_data, signature):
+        """Verify the given signature."""
         raise NotImplementedError  # pragma: nocover
 
     def sign(self, data):
+        """Sign the given data."""
         raise NotImplementedError  # pragma: nocover
 
 
@@ -34,37 +64,34 @@ class Key(object):
 #  RSA keys, implemented using the RSA support in M2Crypto.
 #
 
-class RSKey(object):
+class RSKey(Key):
 
+    KEY_MODULE = _RSA
     SIZE = None
+    HASHNAME = None
     HASHMOD = None
 
-    def __init__(self, data=None, obj=None):
-        if data is None and obj is None:
-            raise ValueError('You should specify either data or obj')
-        if obj is not None:
-            self.rsa = obj
+    def __init__(self, data):
+        _check_keys(data, ('e', 'n'))
+        e = int2mpint(int(data["e"]))
+        n = int2mpint(int(data["n"]))
+        try:
+            d = int2mpint(int(data["d"]))
+        except KeyError:
+            self.keyobj = _RSA.new_pub_key((e, n))
         else:
-            _check_keys(data, ('e', 'n'))
-            e = int2mpint(int(data["e"]))
-            n = int2mpint(int(data["n"]))
-            try:
-                d = int2mpint(int(data["d"]))
-            except KeyError:
-                self.rsa = _RSA.new_pub_key((e, n))
-            else:
-                self.rsa = _RSA.new_key((e, n, d))
+            self.keyobj = _RSA.new_key((e, n, d))
 
     def verify(self, signed_data, signature):
         digest = self.HASHMOD(signed_data).digest()
         try:
-            return self.rsa.verify(digest, signature, self.HASHNAME)
+            return self.keyobj.verify(digest, signature, self.HASHNAME)
         except _RSA.RSAError:
             return False
 
     def sign(self, data):
         digest = self.HASHMOD(data).digest()
-        return self.rsa.sign(digest, self.HASHNAME)
+        return self.keyobj.sign(digest, self.HASHNAME)
 
 
 #
@@ -72,32 +99,37 @@ class RSKey(object):
 #  some formatting tweaks to match what the browserid node-js server does.
 #
 
-class DSKey(object):
+class DSKey(Key):
 
+    KEY_MODULE = _DSA
     BITLENGTH = None
     HASHMOD = None
 
-    def __init__(self, data=None, obj=None):
-        if data is None and obj is None:
-            raise ValueError('You should specify either data or obj')
-        if obj:
-            self.dsa = obj
+    def __init__(self, data):
+        _check_keys(data, ('p', 'q', 'g', 'y'))
+        self.p = p = long(data["p"], 16)
+        self.q = q = long(data["q"], 16)
+        self.g = g = long(data["g"], 16)
+        self.y = y = long(data["y"], 16)
+        if "x" not in data:
+            self.x = None
+            self.keyobj = _DSA.load_pub_key_params(int2mpint(p), int2mpint(q),
+                                                int2mpint(g), int2mpint(y))
         else:
-            _check_keys(data, ('p', 'q', 'g', 'y'))
-
-            self.p = p = long(data["p"], 16)
-            self.q = q = long(data["q"], 16)
-            self.g = g = long(data["g"], 16)
-            self.y = y = long(data["y"], 16)
-            if "x" not in data:
-                self.x = None
-                self.dsa = _DSA.load_pub_key_params(int2mpint(p), int2mpint(q),
-                                                    int2mpint(g), int2mpint(y))
-            else:
-                self.x = x = long(data["x"], 16)
-                self.dsa = _DSA.load_key_params(int2mpint(p), int2mpint(q),
-                                                int2mpint(g), int2mpint(y),
+            self.x = x = long(data["x"], 16)
+            self.keyobj = _DSA.load_key_params(int2mpint(p), int2mpint(q),
+                                            int2mpint(g), int2mpint(y),
                                             int2mpint(x))
+
+    @classmethod
+    def from_pem_data(cls, data=None, filename=None):
+        self = super(DSKey, cls).from_pem_data(data, filename)
+        self.p = mpint2int(m2.dsa_get_p(self.keyobj.dsa))
+        self.q = mpint2int(m2.dsa_get_q(self.keyobj.dsa))
+        self.g = mpint2int(m2.dsa_get_g(self.keyobj.dsa))
+        self.y = None
+        self.x = None
+        return self
 
     def verify(self, signed_data, signature):
         # Restore any leading zero bytes that might have been stripped.
@@ -115,13 +147,13 @@ class DSKey(object):
             return False
         # Now we can check the digest.
         digest = self.HASHMOD(signed_data).digest()
-        return self.dsa.verify(digest, int2mpint(r), int2mpint(s))
+        return self.keyobj.verify(digest, int2mpint(r), int2mpint(s))
 
     def sign(self, data):
         if not self.x:
             raise ValueError("private key not present")
         digest = self.HASHMOD(data).digest()
-        r, s = self.dsa.sign(digest)
+        r, s = self.keyobj.sign(digest)
         # We need precisely "bytelength" bytes from each integer.
         # M2Crypto might give us more or less, so snip and pad appropriately.
         bytelength = self.BITLENGTH / 8
@@ -149,6 +181,12 @@ def int2mpint(x):
     # necessary if the number has its MSB set, to prevent it being mistaken
     # for a sign bit.  I do it uniformly since it's valid and simpler.
     return struct.pack(">I", len(bytes) + 1) + "\x00" + bytes
+
+
+def mpint2int(data):
+    """Convert a string in OpenSSL's MPINT format to a Python long integer."""
+    hexbytes = hexlify(data[4:])
+    return int(hexbytes, 16)
 
 
 def _check_keys(data, keys):

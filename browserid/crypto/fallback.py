@@ -20,10 +20,25 @@ from binascii import unhexlify
 class Key(object):
     """Generic base class for Key objects."""
 
+    @classmethod
+    def from_pem_data(cls, data=None, filename=None):
+        """Alternative constructor for loading from PEM format data."""
+        msg = "PEM data loading is not implemented for pure-python crypto."
+        msg += "  Please install M2Crypto to access this functionality."
+        raise NotImplementedError(msg)
+
+    def to_pem_data(self):
+        """Save the public key data to a PEM format string."""
+        msg = "PEM data saving is not implemented for pure-python crypto."
+        msg += "  Please install M2Crypto to access this functionality."
+        raise NotImplementedError(msg)
+
     def verify(self, signed_data, signature):
+        """Verify the given signature."""
         raise NotImplementedError
 
     def sign(self, data):
+        """Sign the given data."""
         raise NotImplementedError
 
 
@@ -35,7 +50,7 @@ RSA_DIGESTINFO_HEADER = {
 }
 
 
-class RSKey(object):
+class RSKey(Key):
     """Generic base class for RSA key objects.
 
     Concrete subclasses should provide the SIZE, HASHNAME and HASHMOD
@@ -78,7 +93,7 @@ class RSKey(object):
         return padded_digest
 
 
-class DSKey(object):
+class DSKey(Key):
     """Generic base class for DSA key objects.
 
     Concrete subclasses should provide the BITLENGTH and HASHMOD attributes.
