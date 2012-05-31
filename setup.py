@@ -15,7 +15,7 @@ requires = ['M2Crypto', 'requests']
 tests_require = requires + ['mock']
 
 setup(name='PyBrowserID',
-      version='0.5.0',
+      version='0.6.0',
       description='Python library for the BrowserID Protocol',
       long_description=README + '\n\n' + CHANGES,
       license='MPLv2.0',

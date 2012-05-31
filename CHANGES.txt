@@ -1,8 +1,10 @@
-0.6.0 - XXXX-XX-XX
+0.6.0 - 2012-31-05
 ==================
 
   * Remove ability to use a custom JWT parser class, it's not used and
     adds needless complexity.
+  * Add a way to skip the ssl verification when getting certificates with the
+    CertificateManager.
 
 0.5.0 - 2012-04-18
 ==================
