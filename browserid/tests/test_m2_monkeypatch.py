@@ -3,8 +3,13 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from browserid.tests.support import unittest
-from browserid.jwt import int2mpint
-import browserid._m2_monkeypatch as _m2
+
+try:
+    from browserid.crypto.m2 import int2mpint
+    import browserid.crypto._m2_monkeypatch as _m2
+    HAVE_M2CRYPTO = True
+except ImportError:
+    HAVE_M2CRYPTO = False
 
 
 # Dummy RSA key for testing purposes.
@@ -27,6 +32,11 @@ DUMMY_RSA_D = _long("""295278123166626215026113502482091502365034141401240
 
 
 class TestM2MonkeyPatch(unittest.TestCase):
+
+    def setUp(self):
+        super(TestM2MonkeyPatch, self).setUp()
+        if not HAVE_M2CRYPTO:
+            raise unittest.SkipTest()
 
     def test_setting_invalid_data_on_dsa_key(self):
         k = _m2.DSA.gen_params(512)
