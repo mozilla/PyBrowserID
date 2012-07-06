@@ -16,7 +16,9 @@ from browserid import jwt
 from browserid import RemoteVerifier, LocalVerifier
 from browserid.certificates import FIFOCache, CertificatesManager
 from browserid.verifiers.workerpool import WorkerPoolVerifier
-from browserid.utils import encode_json_bytes, decode_json_bytes
+from browserid.utils import (encode_json_bytes,
+                             decode_json_bytes,
+                             bundle_certs_and_assertion)
 from browserid.errors import (TrustError,
                               ConnectionError,
                               ExpiredSignatureError,
@@ -103,10 +105,16 @@ class VerifierTestCases(object):
         self.assertRaises(errors, self.verifier.verify, assertion)
         # This one has no certificates
         pub, priv = get_keypair("TEST")
-        assertion = encode_json_bytes({
-            "assertion": jwt.generate({"aud": "TEST"}, priv),
-            "certificates": []
-        })
+        assertion = bundle_certs_and_assertion(
+            [],
+            jwt.generate({"aud": "TEST"}, priv),
+        )
+        self.assertRaises(errors, self.verifier.verify, assertion)
+        # This one has too many certificates in the chain.
+        assertion = bundle_certs_and_assertion(
+            [jwt.generate({}, priv), jwt.generate({}, priv)],
+            jwt.generate({"aud": "TEST"}, priv),
+        )
         self.assertRaises(errors, self.verifier.verify, assertion)
 
 

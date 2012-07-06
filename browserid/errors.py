@@ -41,3 +41,8 @@ class ExpiredSignatureError(TrustError):
 class AudienceMismatchError(TrustError):
     """Error raised when the audience does not match."""
     pass
+
+
+class UnsupportedCertChainError(TrustError):
+    """The spec for multi-cert chains is in flux; we don't support them yet."""
+    pass

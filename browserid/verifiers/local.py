@@ -10,7 +10,8 @@ from browserid.verifiers import Verifier
 from browserid.certificates import CertificatesManager
 from browserid.utils import  unbundle_certs_and_assertion
 from browserid.errors import (InvalidSignatureError,
-                              ExpiredSignatureError)
+                              ExpiredSignatureError,
+                              UnsupportedCertChainError)
 
 
 DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
@@ -73,6 +74,8 @@ class LocalVerifier(Verifier):
             # Grab the assertion, check that it has not expired.
             # No point doing all that crypto if we're going to fail out anyway.
             certificates, assertion = unbundle_certs_and_assertion(assertion)
+            if len(certificates) > 1:
+                raise UnsupportedCertChainError("too many certs")
             assertion = self.parse_jwt(assertion)
             if assertion.payload["exp"] < now:
                 raise ExpiredSignatureError(assertion.payload["exp"])
