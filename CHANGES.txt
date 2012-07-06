@@ -1,3 +1,9 @@
+0.6.1 - 2012-06-07
+==================
+
+  * Disable certificate chaining for now.  This feature is not used by any
+    servers in the wild, and the spec for it is going to change soon.
+
 0.6.0 - 2012-31-05
 ==================
 
