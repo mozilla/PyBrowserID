@@ -1,3 +1,9 @@
+0.6.2 - 2012-07-17
+==================
+
+  * Add persona.org and related sites to the list of default
+    trusted secondaries.
+
 0.6.1 - 2012-06-07
 ==================
 
