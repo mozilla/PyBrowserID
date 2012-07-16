@@ -23,12 +23,10 @@ class LocalVerifier(Verifier):
     """
 
     def __init__(self, audiences=None, trusted_secondaries=None,
-                 supportdoc_manager=None, warning=True):
+                 supportdocs=None, warning=True):
         super(LocalVerifier, self).__init__(audiences)
         self.trusted_secondaries = trusted_secondaries
-        if supportdoc_manager is None:
-            supportdoc_manager = SupportDocumentManager()
-        self.supportdoc_manager = supportdoc_manager
+        self.supportdocs = supportdocs or SupportDocumentManager()
 
         if warning:
             _emit_warning()
@@ -80,7 +78,7 @@ class LocalVerifier(Verifier):
             email = certificates[-1].payload["principal"]["email"]
             root_issuer = certificates[0].payload["iss"]
             provider = email.split('@')[-1]
-            if not self.supportdoc_manager.is_trusted_issuer(provider,
+            if not self.supportdocs.is_trusted_issuer(provider,
                     root_issuer, self.trusted_secondaries):
                 msg = "untrusted root issuer: %s" % (root_issuer,)
                 raise InvalidSignatureError(msg)
@@ -119,7 +117,7 @@ class LocalVerifier(Verifier):
         if now is None:
             now = int(time.time() * 1000)
         root_issuer = certificates[0].payload["iss"]
-        root_key = self.supportdoc_manager.get_key(root_issuer)
+        root_key = self.supportdocs.get_key(root_issuer)
         current_key = root_key
         for cert in certificates:
             if cert.payload["exp"] < now:

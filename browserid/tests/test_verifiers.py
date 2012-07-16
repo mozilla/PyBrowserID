@@ -301,8 +301,8 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
                           assertion)
 
     def test_cache_eviction_based_on_time(self):
-        supportdoc_mgr = SupportDocumentManager(FIFOCache(cache_timeout=0.1))
-        verifier = LocalVerifier(["*"], supportdoc_manager=supportdoc_mgr,
+        supportdocs = SupportDocumentManager(FIFOCache(cache_timeout=0.1))
+        verifier = LocalVerifier(["*"], supportdocs=supportdocs,
                 warning=False)
         # Prime the cache by verifying an assertion.
         assertion = make_assertion("test@example.com", "")
@@ -318,19 +318,19 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
             self.assertRaises(RuntimeError, verifier.verify, assertion)
 
     def test_cache_eviction_based_on_size(self):
-        supportdoc_mgr = SupportDocumentManager(max_size=2)
-        verifier = LocalVerifier(["*"], supportdoc_manager=supportdoc_mgr,
+        supportdocs = SupportDocumentManager(max_size=2)
+        verifier = LocalVerifier(["*"], supportdocs=supportdocs,
                 warning=False)
         # Prime the cache by verifying some assertions.
         assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
         assertion2 = make_assertion("test@2.com", "", "2.com")
         self.assertTrue(verifier.verify(assertion2))
-        self.assertEquals(len(supportdoc_mgr.cache), 2)
+        self.assertEquals(len(supportdocs.cache), 2)
         # Hitting a third host should evict the first public key.
         assertion3 = make_assertion("test@3.com", "", "3.com")
         self.assertTrue(verifier.verify(assertion3))
-        self.assertEquals(len(supportdoc_mgr.cache), 2)
+        self.assertEquals(len(supportdocs.cache), 2)
         # Make it error out if re-fetching any keys
 
         exc = RuntimeError("key fetch disabled")
@@ -340,19 +340,19 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
             self.assertRaises(RuntimeError, verifier.verify, assertion1)
 
     def test_cache_eviction_during_write(self):
-        supportdoc_mgr = SupportDocumentManager(cache_timeout=0.1)
-        verifier = LocalVerifier(["*"], supportdoc_manager=supportdoc_mgr,
+        supportdocs = SupportDocumentManager(cache_timeout=0.1)
+        verifier = LocalVerifier(["*"], supportdocs=supportdocs,
                 warning=False)
         # Prime the cache by verifying an assertion.
         assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
-        self.assertEquals(len(supportdoc_mgr.cache), 1)
+        self.assertEquals(len(supportdocs.cache), 1)
         # Let that cached key expire
         time.sleep(0.1)
         # Now grab a different key; caching it should purge the expired key.
         assertion2 = make_assertion("test@2.com", "", "2.com")
         self.assertTrue(verifier.verify(assertion2))
-        self.assertEquals(len(supportdoc_mgr.cache), 1)
+        self.assertEquals(len(supportdocs.cache), 1)
         # Check that only the second entry is in cache.
 
         exc = RuntimeError("key fetch disabled")
