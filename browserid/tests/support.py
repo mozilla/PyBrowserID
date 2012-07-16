@@ -61,6 +61,9 @@ def fetch_wellknown_file(hostname, verify=None):
     if hostname == "redirect.org":
         return {"authority": "delegated.org"}
 
+    if hostname == "redirect-twice.org":
+        return {"authority": "redirect.org"}
+
     if hostname == "infinite.org":
         return {"authority": "infinite.org"}
 

@@ -98,12 +98,12 @@ class TestIssuerValidation(unittest.TestCase):
     def test_trusted_secondaries(self):
         self.assertTrue(self.wellknown.is_issuer_valid('test.com', 'browserid.org'))
         self.assertFalse(self.wellknown.is_issuer_valid('test.com',
-            'browserid.org', trusted_secondaries=[], max_hops=0))
+            'browserid.org', trusted_secondaries=[], max_delegations=0))
 
     def test_hostname_issuer(self):
         self.assertTrue(self.wellknown.is_issuer_valid('test.com', 'test.com'))
         self.assertFalse(self.wellknown.is_issuer_valid('abc.com', 'test.com',
-            max_hops=0))
+            max_delegations=0))
 
     @patch('browserid.wellknown.fetch_wellknown_file', patched_wellknown_file)
     def test_delegated_primary(self):
@@ -112,12 +112,10 @@ class TestIssuerValidation(unittest.TestCase):
 
     def test_disabled_delegated_primary(self):
         self.assertFalse(self.wellknown.is_issuer_valid('redirect.org',          
-            'delegated.org', max_hops=0))
+            'delegated.org', max_delegations=0))
 
     @patch('browserid.wellknown.fetch_wellknown_file', patched_wellknown_file)
     def test_infinite_delegated_primary_recursion(self):
         self.assertFalse(self.wellknown.is_issuer_valid('infinite.org', None))
-        self.assertRaises(RuntimeError, self.wellknown.is_issuer_valid,
-            'infinite.org', None, max_hops=None)
-
- 
+        self.assertFalse(self.wellknown.is_issuer_valid('infinite.org',
+                         'delegated.org'))
