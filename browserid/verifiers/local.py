@@ -15,7 +15,8 @@ from browserid.errors import (InvalidSignatureError,
 
 
 DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
-                               "dev.diresworb.org")
+                               "dev.diresworb.org" "login.anosrep.org",
+                               "login.persona.org")
 
 
 class LocalVerifier(Verifier):
