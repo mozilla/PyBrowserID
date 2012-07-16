@@ -7,6 +7,12 @@
     Currently these are only available when M2Crypto is installed.
   * Added support for delegation of authority; thanks @kylef.
 
+0.6.2 - 2012-07-17
+==================
+
+  * Add persona.org and related sites to the list of default
+    trusted secondaries.
+
 0.6.1 - 2012-06-07
 ==================
 
