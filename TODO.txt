@@ -1,3 +1,0 @@
-
- * replace secure_urlopen with the "requests" library
-
