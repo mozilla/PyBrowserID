@@ -19,10 +19,12 @@ WELL_KNOWN_URL = "/.well-known/browserid"
 DEFAULT_MAX_DELEGATIONS = 6
 
 
-class WellKnownManager(object):
-    """A simple well-known BrowserID file handler. It acts like a dict of
-    BrowserID well-known files. This manager populates itself automatically,
-    so you don't need to fetch the file when you get a KeyError.
+class SupportDocumentManager(object):
+    """Manager for mapping hostnames to their BrowserID support documents.
+
+    This object handles the association of a hostname with its BrowserID
+    support document, if any.  It automatically fetches support documents
+    as required and stores them in a cache for future reference.
     """
 
     def __init__(self, cache=None, verify=None, **kwargs):
@@ -31,47 +33,53 @@ class WellKnownManager(object):
             cache = FIFOCache(**kwargs)
         self.cache = cache
 
-    def __getitem__(self, hostname):
+    def get_support_document(self, hostname):
+        """Get the BrowserID support document for the given hostname."""
         try:
             # Use a cached key if available.
-            (error, support) = self.cache[hostname]
+            (error, supportdoc) = self.cache[hostname]
         except KeyError:
             # Fetch the key afresh from the specified server.
             # Cache any failures so we're not flooding bad hosts.
-            error = support = None
+            error = supportdoc = None
             try:
-                support = self.fetch_wellknown_file(hostname)
+                supportdoc = self.fetch_support_document(hostname)
             except Exception, e:  # NOQA
                 error = e
-            self.cache[hostname] = (error, support)
+            self.cache[hostname] = (error, supportdoc)
         if error is not None:
             raise error
-        return support
+        return supportdoc
 
     def get_key(self, hostname):
+        """Get the public key for verifying assertions from the given host."""
+        supportdoc = self.get_support_document(hostname)
         try:
-            key = self[hostname]['public-key']
+            key = supportdoc['public-key']
         except KeyError:
             raise InvalidIssuerError(
                     "Host %r doesn't provide a public key" % hostname)
 
         return key
 
-    def fetch_wellknown_file(self, hostname):
-        return fetch_wellknown_file(hostname, verify=self.verify)
+    def fetch_support_document(self, hostname):
+        """Fetch the BrowserID support document for the given hostname."""
+        return fetch_support_document(hostname, verify=self.verify)
 
-    def is_issuer_valid(self, hostname, issuer, trusted_secondaries=None,
+    def is_trusted_issuer(self, hostname, issuer, trusted_secondaries=None,
             max_delegations=DEFAULT_MAX_DELEGATIONS):
-        """
-        This method allows you to check if a hostname is valid for an issuer.
+        """Check whether an issuer is trusted to assert for a given hostname.
 
-        There are three methods where this will return True:
-        * The hostname is the issuer
-        * The hostname is in the list of trusted secondaries
-        * When the hostname delegates to the issuer
+        This method checks whether the given issuer is trusted to assert
+        identitiers for the given hostname.  There are three cases in which
+        this can be true:
 
-        You can disable the check for delegated primaries by setting the
-        max_delegations to 0.
+          * The hostname and issuer and the same
+          * The issuer is in the list of trusted secondaries
+          * The hostname delegates authority to the issuer
+
+        You can disable the check for delegated authority by setting the
+        max_delegations argument to 0.
         """
         if hostname == issuer:
             return True
@@ -84,8 +92,8 @@ class WellKnownManager(object):
 
         num_delegations = 0
         while num_delegations < max_delegations:
-            support = self[hostname]
-            authority = support.get("authority")
+            supportdoc = self.get_support_document(hostname)
+            authority = supportdoc.get("authority")
             if authority is None:
                 break
             if authority == issuer:
@@ -120,9 +128,6 @@ class FIFOCache(object):
 
         This method retrieves the value cached under the given key, evicting
         it from the cache if expired.
-
-        If the key doesn't exist, it loads it using the fetch_wellknown_file
-        method.
         """
         (timestamp, value) = self.items_map[key]
         if self.cache_timeout:
@@ -198,16 +203,19 @@ def _get(url, verify):
         raise ConnectionError(msg)
 
 
-def fetch_wellknown_file(hostname, well_known_url=WELL_KNOWN_URL, verify=None):
+def fetch_support_document(hostname, well_known_url=None, verify=None):
     """Fetch the BrowserID well-known file for the given hostname.
 
     This function fetches and parses the well-known BrowserID meta-data file.
 
     :param verify: verify the certificate when requesting ssl resources
     """
+    if well_known_url is None:
+        well_known_url = WELL_KNOWN_URL
+
     hostname = 'https://%s' % hostname
 
-    # Try to find the support file.  If it can't be found then we
+    # Try to find the support document.  If it can't be found then we
     # raise an InvalidIssuerError.  Any other connection-related
     # errors are passed back up to the caller.
     response = _get(urljoin(hostname, well_known_url), verify=verify)
@@ -216,7 +224,7 @@ def fetch_wellknown_file(hostname, well_known_url=WELL_KNOWN_URL, verify=None):
             data = json.loads(response.text)
         except ValueError:
             raise InvalidIssuerError('Host %r has malformed BrowserID '
-                                     'metadata document' % hostname)
+                                     'support document' % hostname)
     else:
         # The well-known file was not found, try falling back to
         # just "/pk".

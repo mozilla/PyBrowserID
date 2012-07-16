@@ -7,7 +7,7 @@ import warnings
 
 from browserid import jwt
 from browserid.verifiers import Verifier
-from browserid.wellknown import WellKnownManager, DEFAULT_TRUSTED_SECONDARIES
+from browserid.supportdoc import SupportDocumentManager
 from browserid.utils import  unbundle_certs_and_assertion
 from browserid.errors import (InvalidSignatureError,
                               ExpiredSignatureError,
@@ -23,13 +23,12 @@ class LocalVerifier(Verifier):
     """
 
     def __init__(self, audiences=None, trusted_secondaries=None,
-                 wellknown_manager=None, warning=True):
-        if trusted_secondaries is None:
-            trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES
-
+                 supportdoc_manager=None, warning=True):
         super(LocalVerifier, self).__init__(audiences)
         self.trusted_secondaries = trusted_secondaries
-        self.wellknown_manager = wellknown_manager or WellKnownManager()
+        if supportdoc_manager is None:
+            supportdoc_manager = SupportDocumentManager()
+        self.supportdoc_manager = supportdoc_manager
 
         if warning:
             _emit_warning()
@@ -81,7 +80,7 @@ class LocalVerifier(Verifier):
             email = certificates[-1].payload["principal"]["email"]
             root_issuer = certificates[0].payload["iss"]
             provider = email.split('@')[-1]
-            if not self.wellknown_manager.is_issuer_valid(provider,
+            if not self.supportdoc_manager.is_trusted_issuer(provider,
                     root_issuer, self.trusted_secondaries):
                 msg = "untrusted root issuer: %s" % (root_issuer,)
                 raise InvalidSignatureError(msg)
@@ -120,7 +119,7 @@ class LocalVerifier(Verifier):
         if now is None:
             now = int(time.time() * 1000)
         root_issuer = certificates[0].payload["iss"]
-        root_key = self.wellknown_manager.get_key(root_issuer)
+        root_key = self.supportdoc_manager.get_key(root_issuer)
         current_key = root_key
         for cert in certificates:
             if cert.payload["exp"] < now:

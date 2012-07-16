@@ -8,7 +8,7 @@ from contextlib import contextmanager
 
 from browserid.utils import encode_bytes, bundle_certs_and_assertion
 
-from browserid import wellknown
+from browserid import supportdoc
 from browserid import jwt
 
 # if unittest2 isn't available, assume that we are python 2.7
@@ -50,8 +50,8 @@ def _hex(value):
     return value
 
 
-def fetch_wellknown_file(hostname, verify=None):
-    """Fetch the BrowserID support file for the given hostname.
+def fetch_support_document(hostname, verify=None):
+    """Fetch the BrowserID support document for the given hostname.
 
     Actually, this implementation generates a key locally based on
     a hash of the hostname.  This lets us exercise all the crypto code
@@ -156,7 +156,7 @@ def make_assertion(email, audience, issuer=None, exp=None,
 
 
 @contextmanager
-def patched_wellknown_fetching(replacement=None, exc=None):
+def patched_supportdoc_fetching(replacement=None, exc=None):
     """Patch the key fetching mechanism with the given callable.
 
     This is to allow easier testing.
@@ -167,8 +167,18 @@ def patched_wellknown_fetching(replacement=None, exc=None):
     if exc is not None:
         replacement = raise_exception
     if replacement is None:
-        replacement = fetch_wellknown_file
-    old_callable = wellknown.fetch_wellknown_file
-    wellknown.fetch_wellknown_file = replacement
+        replacement = fetch_support_document
+    old_callable = supportdoc.fetch_support_document
+    supportdoc.fetch_support_document = replacement
     yield
-    wellknown.fetch_wellknown_file = old_callable
+    supportdoc.fetch_support_document = old_callable
+
+
+def callwith(context):
+    """Decorator to call a function with a context manager."""
+    def decorator(func):
+        def wrapper(*args, **kwds):
+            with context:
+                return func(*args, **kwds)
+        return wrapper
+    return decorator

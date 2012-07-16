@@ -3,11 +3,11 @@ import json
 from mock import Mock, patch
 from requests.exceptions import RequestException
 
-from browserid.wellknown import fetch_wellknown_file, WellKnownManager
+from browserid.supportdoc import fetch_support_document, SupportDocumentManager
 from browserid.errors import ConnectionError, InvalidIssuerError
 from browserid.tests.support import unittest
-from browserid.tests.support import (fetch_wellknown_file as
-        patched_wellknown_file)
+from browserid.tests.support import (fetch_support_document as
+        patched_support_document)
 
 
 # Retrieved from browserid.org on April 3rd 2012
@@ -27,7 +27,8 @@ BROWSERID_PK_PY = json.loads(BROWSERID_PK)
 
 
 class TestFetchPublicKey(unittest.TestCase):
-    @patch('browserid.wellknown.requests')
+
+    @patch('browserid.supportdoc.requests')
     def _fetch(self, hostname, requests, well_known_url=None,
                side_effect=None, response_text='', status_code=200):
         response = Mock()
@@ -40,10 +41,10 @@ class TestFetchPublicKey(unittest.TestCase):
         if well_known_url is not None:
             kwargs['well_known_url'] = well_known_url
 
-        wellknown = fetch_wellknown_file(hostname, **kwargs)
+        supportdoc = fetch_support_document(hostname, **kwargs)
 
         try:
-            key = wellknown['public-key']
+            key = supportdoc['public-key']
         except KeyError:
             raise InvalidIssuerError('Host %r has malformed public key '
                                      'document' % hostname)
@@ -55,12 +56,12 @@ class TestFetchPublicKey(unittest.TestCase):
         with self.assertRaises(ConnectionError):
             self._fetch('test.com', side_effect=RequestException)
 
-    @patch('browserid.wellknown.fetch_wellknown_file')
-    def test_missing_well_known_document(self, fetch):
+    @patch('browserid.supportdoc.fetch_support_document')
+    def test_missing_support_document(self, fetch):
         with self.assertRaises(InvalidIssuerError):
             self._fetch('test.com', status_code=404)
 
-    def test_malformed_well_known_document(self):
+    def test_malformed_support_document(self):
         response_text = 'I AINT NO JSON, FOOL!'
         with self.assertRaises(InvalidIssuerError):
             self._fetch('test.com', response_text=response_text)
@@ -77,12 +78,12 @@ class TestFetchPublicKey(unittest.TestCase):
             return response
         post.called = False
 
-        with patch('browserid.wellknown.requests') as requests:
+        with patch('browserid.supportdoc.requests') as requests:
             requests.post = post
             with self.assertRaises(InvalidIssuerError):
-                fetch_wellknown_file('test.com')
+                fetch_support_document('test.com')
 
-    def test_well_known_doc_with_no_public_key(self):
+    def test_support_document_with_no_public_key(self):
         with self.assertRaises(InvalidIssuerError):
             self._fetch('test.com', response_text='{}')
 
@@ -91,31 +92,36 @@ class TestFetchPublicKey(unittest.TestCase):
         self.assertEquals(key, BROWSERID_PK_PY['public-key'])
 
 
-class TestIssuerValidation(unittest.TestCase):
+class TestTrustedIssuers(unittest.TestCase):
     def setUp(self):
-        self.wellknown = WellKnownManager()
+        self.supportdocmgr = SupportDocumentManager()
+
+    def _is_trusted_issuer(self, *args, **kwds):
+        return self.supportdocmgr.is_trusted_issuer(*args, **kwds)
 
     def test_trusted_secondaries(self):
-        self.assertTrue(self.wellknown.is_issuer_valid('test.com', 'browserid.org'))
-        self.assertFalse(self.wellknown.is_issuer_valid('test.com',
-            'browserid.org', trusted_secondaries=[], max_delegations=0))
+        self.assertTrue(self._is_trusted_issuer('test.com', 'browserid.org'))
+        self.assertFalse(self._is_trusted_issuer('test.com', 'browserid.org',
+            trusted_secondaries=[], max_delegations=0))
 
     def test_hostname_issuer(self):
-        self.assertTrue(self.wellknown.is_issuer_valid('test.com', 'test.com'))
-        self.assertFalse(self.wellknown.is_issuer_valid('abc.com', 'test.com',
+        self.assertTrue(self._is_trusted_issuer('test.com', 'test.com'))
+        self.assertFalse(self._is_trusted_issuer('abc.com', 'test.com',
             max_delegations=0))
 
-    @patch('browserid.wellknown.fetch_wellknown_file', patched_wellknown_file)
+    @patch('browserid.supportdoc.fetch_support_document',
+           patched_support_document)
     def test_delegated_primary(self):
-        self.assertTrue(self.wellknown.is_issuer_valid('redirect.org',
+        self.assertTrue(self._is_trusted_issuer('redirect.org',
             'delegated.org'))
 
     def test_disabled_delegated_primary(self):
-        self.assertFalse(self.wellknown.is_issuer_valid('redirect.org',          
+        self.assertFalse(self._is_trusted_issuer('redirect.org',
             'delegated.org', max_delegations=0))
 
-    @patch('browserid.wellknown.fetch_wellknown_file', patched_wellknown_file)
+    @patch('browserid.supportdoc.fetch_support_document',
+           patched_support_document)
     def test_infinite_delegated_primary_recursion(self):
-        self.assertFalse(self.wellknown.is_issuer_valid('infinite.org', None))
-        self.assertFalse(self.wellknown.is_issuer_valid('infinite.org',
+        self.assertFalse(self._is_trusted_issuer('infinite.org', None))
+        self.assertFalse(self._is_trusted_issuer('infinite.org',
                          'delegated.org'))
