@@ -5,6 +5,7 @@
     use when M2Crypto is not available.
   * Added "from_pem_data" and "to_pem_data" methods to Key objects.
     Currently these are only available when M2Crypto is installed.
+  * Added support for delegation of authority; thanks @kylef.
 
 0.6.1 - 2012-06-07
 ==================
