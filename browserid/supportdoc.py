@@ -92,7 +92,10 @@ class SupportDocumentManager(object):
 
         num_delegations = 0
         while num_delegations < max_delegations:
-            supportdoc = self.get_support_document(hostname)
+            try:
+                supportdoc = self.get_support_document(hostname)
+            except (InvalidIssuerError, ConnectionError):
+                break
             authority = supportdoc.get("authority")
             if authority is None:
                 break
