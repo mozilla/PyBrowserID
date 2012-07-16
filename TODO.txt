@@ -1,3 +1,0 @@
-
- * delegation of authority for a domain
-

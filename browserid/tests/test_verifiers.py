@@ -8,13 +8,12 @@ import warnings
 from mock import Mock, patch
 
 import browserid
-from browserid.tests.support import (patched_key_fetching,
+from browserid.tests.support import (patched_supportdoc_fetching,
                                      get_keypair,
-                                     fetch_public_key,
-                                     make_assertion, unittest)
+                                     make_assertion, unittest, callwith)
 from browserid import jwt
 from browserid import RemoteVerifier, LocalVerifier
-from browserid.certificates import FIFOCache, CertificatesManager
+from browserid.supportdoc import FIFOCache, SupportDocumentManager
 from browserid.verifiers.workerpool import WorkerPoolVerifier
 from browserid.utils import (encode_json_bytes,
                              decode_json_bytes,
@@ -135,12 +134,24 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertRaises(ExpiredSignatureError,
                           self.verifier.verify_certificate_chain, certs)
 
-    @patch('browserid.certificates.fetch_public_key', fetch_public_key)
+    @callwith(patched_supportdoc_fetching())
     def test_well_known_doc_with_public_key(self):
         assertion = make_assertion("t@m.com", "http://e.com")
         self.assertTrue(self.verifier.verify(assertion))
 
-    @patch('browserid.certificates.fetch_public_key', fetch_public_key)
+    @callwith(patched_supportdoc_fetching())
+    def test_delegated_primary(self):
+        assertion = make_assertion("t@redirect.org", "http://persona.org",
+                issuer="delegated.org")
+        self.assertTrue(self.verifier.verify(assertion))
+
+    @callwith(patched_supportdoc_fetching())
+    def test_double_delegated_primary(self):
+        assertion = make_assertion("t@redirect-twice.org",
+                "http://persona.org", issuer="delegated.org")
+        self.assertTrue(self.verifier.verify(assertion))
+
+    @callwith(patched_supportdoc_fetching())
     def test_audience_verification(self):
 
         # create an assertion with the audience set to http://persona.org for
@@ -231,7 +242,7 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
 class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def setUp(self):
-        self.patched = patched_key_fetching()
+        self.patched = patched_supportdoc_fetching()
         self.patched.__enter__()
         self.verifier = LocalVerifier(["*"], warning=False)
 
@@ -261,7 +272,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         # Assertions for @moz.com addresses can come from moz.com
         assertion = make_assertion("test@moz.com", audience, issuer=issuer)
         self.assertTrue(self.verifier.verify(assertion, audience))
-        # But assertions for other addresses cannot.
+        # But assertions for other addresses cannot (unless they delegated).
         assertion = make_assertion("test@example.com", audience,
                                    issuer=issuer)
         self.assertRaises(InvalidSignatureError, self.verifier.verify,
@@ -290,57 +301,62 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
                           assertion)
 
     def test_cache_eviction_based_on_time(self):
-        certs = CertificatesManager(FIFOCache(cache_timeout=0.1))
-        verifier = LocalVerifier(["*"], certs=certs, warning=False)
+        supportdocs = SupportDocumentManager(FIFOCache(cache_timeout=0.1))
+        verifier = LocalVerifier(["*"], supportdocs=supportdocs,
+                warning=False)
         # Prime the cache by verifying an assertion.
         assertion = make_assertion("test@example.com", "")
         self.assertTrue(verifier.verify(assertion))
         # Make it error out if re-fetching the keys
 
-        with patched_key_fetching(exc=RuntimeError("key fetch disabled")):
-            verifier.fetch_public_key = fetch_public_key
+        exc = RuntimeError("key fetch disabled")
+        with patched_supportdoc_fetching(exc=exc):
             # It should be in the cache, so this works fine.
-            verifier.verify(assertion)
+            self.assertTrue(verifier.verify(assertion))
             # But after sleeping it gets evicted and the error is triggered.
             time.sleep(0.1)
             self.assertRaises(RuntimeError, verifier.verify, assertion)
 
     def test_cache_eviction_based_on_size(self):
-        certs = CertificatesManager(max_size=2)
-        verifier = LocalVerifier(["*"], certs=certs, warning=False)
+        supportdocs = SupportDocumentManager(max_size=2)
+        verifier = LocalVerifier(["*"], supportdocs=supportdocs,
+                warning=False)
         # Prime the cache by verifying some assertions.
         assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
         assertion2 = make_assertion("test@2.com", "", "2.com")
         self.assertTrue(verifier.verify(assertion2))
-        self.assertEquals(len(certs.cache), 2)
+        self.assertEquals(len(supportdocs.cache), 2)
         # Hitting a third host should evict the first public key.
         assertion3 = make_assertion("test@3.com", "", "3.com")
         self.assertTrue(verifier.verify(assertion3))
-        self.assertEquals(len(certs.cache), 2)
+        self.assertEquals(len(supportdocs.cache), 2)
         # Make it error out if re-fetching any keys
 
-        with patched_key_fetching(exc=RuntimeError("key fetch disabled")):
+        exc = RuntimeError("key fetch disabled")
+        with patched_supportdoc_fetching(exc=exc):
             # It should have to re-fetch for 1, but not 2.
             self.assertTrue(verifier.verify(assertion2))
             self.assertRaises(RuntimeError, verifier.verify, assertion1)
 
     def test_cache_eviction_during_write(self):
-        certs = CertificatesManager(cache_timeout=0.1)
-        verifier = LocalVerifier(["*"], certs=certs, warning=False)
+        supportdocs = SupportDocumentManager(cache_timeout=0.1)
+        verifier = LocalVerifier(["*"], supportdocs=supportdocs,
+                warning=False)
         # Prime the cache by verifying an assertion.
         assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
-        self.assertEquals(len(certs.cache), 1)
+        self.assertEquals(len(supportdocs.cache), 1)
         # Let that cached key expire
         time.sleep(0.1)
         # Now grab a different key; caching it should purge the expired key.
         assertion2 = make_assertion("test@2.com", "", "2.com")
         self.assertTrue(verifier.verify(assertion2))
-        self.assertEquals(len(certs.cache), 1)
+        self.assertEquals(len(supportdocs.cache), 1)
         # Check that only the second entry is in cache.
 
-        with patched_key_fetching(exc=RuntimeError("key fetch disabled")):
+        exc = RuntimeError("key fetch disabled")
+        with patched_supportdoc_fetching(exc=exc):
             self.assertTrue(verifier.verify(assertion2))
             self.assertRaises(RuntimeError, verifier.verify, assertion1)
 

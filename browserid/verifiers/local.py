@@ -7,15 +7,11 @@ import warnings
 
 from browserid import jwt
 from browserid.verifiers import Verifier
-from browserid.certificates import CertificatesManager
+from browserid.supportdoc import SupportDocumentManager
 from browserid.utils import  unbundle_certs_and_assertion
 from browserid.errors import (InvalidSignatureError,
                               ExpiredSignatureError,
                               UnsupportedCertChainError)
-
-
-DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
-                               "dev.diresworb.org")
 
 
 class LocalVerifier(Verifier):
@@ -26,17 +22,11 @@ class LocalVerifier(Verifier):
     verify() method and let it work its magic.
     """
 
-    def __init__(self, audiences=None, trusted_secondaries=None, certs=None,
-                 warning=True):
-        if trusted_secondaries is None:
-            trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES
-
-        if certs is None:
-            certs = CertificatesManager()
-
+    def __init__(self, audiences=None, trusted_secondaries=None,
+                 supportdocs=None, warning=True):
         super(LocalVerifier, self).__init__(audiences)
         self.trusted_secondaries = trusted_secondaries
-        self.certs = certs
+        self.supportdocs = supportdocs or SupportDocumentManager()
 
         if warning:
             _emit_warning()
@@ -87,10 +77,11 @@ class LocalVerifier(Verifier):
             # No point doing all that crypto if we're going to fail out anyway.
             email = certificates[-1].payload["principal"]["email"]
             root_issuer = certificates[0].payload["iss"]
-            if root_issuer not in self.trusted_secondaries:
-                if not email.endswith("@" + root_issuer):
-                    msg = "untrusted root issuer: %s" % (root_issuer,)
-                    raise InvalidSignatureError(msg)
+            provider = email.split('@')[-1]
+            if not self.supportdocs.is_trusted_issuer(provider,
+                    root_issuer, self.trusted_secondaries):
+                msg = "untrusted root issuer: %s" % (root_issuer,)
+                raise InvalidSignatureError(msg)
 
             # Verify the entire chain of certificates.
             cert = self.verify_certificate_chain(certificates, now=now)
@@ -126,7 +117,7 @@ class LocalVerifier(Verifier):
         if now is None:
             now = int(time.time() * 1000)
         root_issuer = certificates[0].payload["iss"]
-        root_key = self.certs[root_issuer]
+        root_key = self.supportdocs.get_key(root_issuer)
         current_key = root_key
         for cert in certificates:
             if cert.payload["exp"] < now:

@@ -13,14 +13,18 @@ from requests.exceptions import RequestException
 from browserid.errors import (ConnectionError,
                               InvalidIssuerError)
 
+DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
+                               "dev.diresworb.org")
 WELL_KNOWN_URL = "/.well-known/browserid"
+DEFAULT_MAX_DELEGATIONS = 6
 
 
-class CertificatesManager(object):
-    """A simple certificate handler. It acts like a dictionary of
-    certificates. The key being the hostname and the value the certificate
-    itself. the certificate manager populates itself automatically, so you
-    don't need to fetch the public key when you get a KeyError.
+class SupportDocumentManager(object):
+    """Manager for mapping hostnames to their BrowserID support documents.
+
+    This object handles the association of a hostname with its BrowserID
+    support document, if any.  It automatically fetches support documents
+    as required and stores them in a cache for future reference.
     """
 
     def __init__(self, cache=None, verify=None, **kwargs):
@@ -29,25 +33,75 @@ class CertificatesManager(object):
             cache = FIFOCache(**kwargs)
         self.cache = cache
 
-    def __getitem__(self, hostname):
+    def get_support_document(self, hostname):
+        """Get the BrowserID support document for the given hostname."""
         try:
             # Use a cached key if available.
-            (error, key) = self.cache[hostname]
+            (error, supportdoc) = self.cache[hostname]
         except KeyError:
             # Fetch the key afresh from the specified server.
             # Cache any failures so we're not flooding bad hosts.
-            error = key = None
+            error = supportdoc = None
             try:
-                key = self.fetch_public_key(hostname)
+                supportdoc = self.fetch_support_document(hostname)
             except Exception, e:  # NOQA
                 error = e
-            self.cache[hostname] = (error, key)
+            self.cache[hostname] = (error, supportdoc)
         if error is not None:
             raise error
+        return supportdoc
+
+    def get_key(self, hostname):
+        """Get the public key for verifying assertions from the given host."""
+        supportdoc = self.get_support_document(hostname)
+        try:
+            key = supportdoc['public-key']
+        except KeyError:
+            raise InvalidIssuerError(
+                    "Host %r doesn't provide a public key" % hostname)
+
         return key
 
-    def fetch_public_key(self, hostname):
-        return fetch_public_key(hostname, verify=self.verify)
+    def fetch_support_document(self, hostname):
+        """Fetch the BrowserID support document for the given hostname."""
+        return fetch_support_document(hostname, verify=self.verify)
+
+    def is_trusted_issuer(self, hostname, issuer, trusted_secondaries=None,
+            max_delegations=DEFAULT_MAX_DELEGATIONS):
+        """Check whether an issuer is trusted to assert for a given hostname.
+
+        This method checks whether the given issuer is trusted to assert
+        identitiers for the given hostname.  There are three cases in which
+        this can be true:
+
+          * The hostname and issuer and the same
+          * The issuer is in the list of trusted secondaries
+          * The hostname delegates authority to the issuer
+
+        You can disable the check for delegated authority by setting the
+        max_delegations argument to 0.
+        """
+        if hostname == issuer:
+            return True
+
+        if trusted_secondaries is None:
+            trusted_secondaries = DEFAULT_TRUSTED_SECONDARIES
+
+        if issuer in trusted_secondaries:
+            return True
+
+        num_delegations = 0
+        while num_delegations < max_delegations:
+            supportdoc = self.get_support_document(hostname)
+            authority = supportdoc.get("authority")
+            if authority is None:
+                break
+            if authority == issuer:
+                return True
+            hostname = authority
+            num_delegations += 1
+
+        return False
 
 
 class FIFOCache(object):
@@ -74,9 +128,6 @@ class FIFOCache(object):
 
         This method retrieves the value cached under the given key, evicting
         it from the cache if expired.
-
-        If the key doesn't exist, it loads it using the fetch_public_key
-        method.
         """
         (timestamp, value) = self.items_map[key]
         if self.cache_timeout:
@@ -152,26 +203,28 @@ def _get(url, verify):
         raise ConnectionError(msg)
 
 
-def fetch_public_key(hostname, well_known_url=WELL_KNOWN_URL, verify=None):
-    """Fetch the BrowserID public key for the given hostname.
+def fetch_support_document(hostname, well_known_url=None, verify=None):
+    """Fetch the BrowserID well-known file for the given hostname.
 
-    This function uses the well-known BrowserID meta-data file to extract
-    the public key for the given hostname.
+    This function fetches and parses the well-known BrowserID meta-data file.
 
     :param verify: verify the certificate when requesting ssl resources
     """
+    if well_known_url is None:
+        well_known_url = WELL_KNOWN_URL
+
     hostname = 'https://%s' % hostname
 
-    # Try to find the public key.  If it can't be found then we
+    # Try to find the support document.  If it can't be found then we
     # raise an InvalidIssuerError.  Any other connection-related
     # errors are passed back up to the caller.
     response = _get(urljoin(hostname, well_known_url), verify=verify)
     if response.status_code == 200:
         try:
-            key = json.loads(response.text)['public-key']
-        except (ValueError, KeyError):
-            raise InvalidIssuerError('Host %r has malformed public key '
-                                     'document' % hostname)
+            data = json.loads(response.text)
+        except ValueError:
+            raise InvalidIssuerError('Host %r has malformed BrowserID '
+                                     'support document' % hostname)
     else:
         # The well-known file was not found, try falling back to
         # just "/pk".
@@ -182,8 +235,10 @@ def fetch_public_key(hostname, well_known_url=WELL_KNOWN_URL, verify=None):
             except ValueError:
                 raise InvalidIssuerError('Host %r has malformed BrowserID '
                                          'metadata document' % hostname)
+
+            data = {"public-key": key}
         else:
             raise InvalidIssuerError('Host %r does not declare support for '
                                      'BrowserID' % hostname)
 
-    return key
+    return data
