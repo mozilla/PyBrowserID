@@ -374,6 +374,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         assertion = make_assertion("test@example.com", "www.test.com")
         self.assertTrue(verifier.verify(assertion))
         self.assertTrue(verifier.verify(assertion, "www.test.com"))
+        self.assertTrue(verifier.verify(assertion, "*.test.com"))
         self.assertRaises(AudienceMismatchError,
                           verifier.verify, assertion, "www.moz.com")
         # Domains not matching any patterns should not be valid audiences.
@@ -381,6 +382,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         assertion = make_assertion("test@example.com", "www.evil.com")
         self.assertRaises(AudienceMismatchError, verifier.verify, assertion)
         self.assertTrue(verifier.verify(assertion, "www.evil.com"))
+        self.assertTrue(verifier.verify(assertion, "*.evil.com"))
 
 
 class TestWorkerPoolVerifier(TestDummyVerifier):
