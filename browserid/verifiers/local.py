@@ -78,8 +78,7 @@ class LocalVerifier(Verifier):
             email = certificates[-1].payload["principal"]["email"]
             root_issuer = certificates[0].payload["iss"]
             provider = email.split('@')[-1]
-            if not self.supportdocs.is_trusted_issuer(provider,
-                    root_issuer, self.trusted_secondaries):
+            if not self.is_trusted_issuer(provider, root_issuer):
                 msg = "untrusted root issuer: %s" % (root_issuer,)
                 raise InvalidSignatureError(msg)
 
@@ -99,7 +98,13 @@ class LocalVerifier(Verifier):
           "issuer": root_issuer,
         }
 
+    def is_trusted_issuer(self, hostname, issuer):
+        """Check whether the issuer is trusted for a given hostname."""
+        return self.supportdocs.is_trusted_issuer(hostname, issuer,
+                                                  self.trusted_secondaries)
+
     def check_token_signature(self, data, cert):
+        """Check for a valid signature on the given JWT."""
         return data.check_signature(cert.payload["public-key"])
 
     def verify_certificate_chain(self, certificates, now=None):
