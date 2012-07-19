@@ -100,8 +100,9 @@ class TestTrustedIssuers(unittest.TestCase):
         return self.supportdocmgr.is_trusted_issuer(*args, **kwds)
 
     def test_trusted_secondaries(self):
-        self.assertTrue(self._is_trusted_issuer('test.com', 'browserid.org'))
-        self.assertFalse(self._is_trusted_issuer('test.com', 'browserid.org',
+        PERSONA_HOST = 'login.persona.org'
+        self.assertTrue(self._is_trusted_issuer('test.com', PERSONA_HOST))
+        self.assertFalse(self._is_trusted_issuer('test.com', PERSONA_HOST,
             trusted_secondaries=[], max_delegations=0))
 
     def test_hostname_issuer(self):

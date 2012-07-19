@@ -35,7 +35,7 @@ def verify(assertion, audience=None):
     This function uses the "best" verification method available in order to
     verify the given BrowserID assertion and return a dict of user data.  The
     best method currently involves POSTing to the hosted verifier service on
-    browserid.org; eventually it will do local verification.
+    persona.org; eventually it will do local verification.
     """
     global _DEFAULT_VERIFIER
     if _DEFAULT_VERIFIER is None:

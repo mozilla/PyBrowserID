@@ -112,13 +112,13 @@ def make_assertion(email, audience, issuer=None, exp=None,
 
     This method lets you generate BrowserID assertions using dummy private
     keys. Called with just an email and audience it will generate an assertion
-    from browserid.org.
+    from login.persona.org.
 
     By specifying the "exp", "assertion_sig" or "certificate_sig" arguments
     it is possible generate invalid assertions for testing purposes.
     """
     if issuer is None:
-        issuer = "browserid.org"
+        issuer = "login.persona.org"
     if exp is None:
         exp = int((time.time() + 60) * 1000)
     # Get private key for the email address itself.

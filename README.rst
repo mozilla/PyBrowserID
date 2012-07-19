@@ -1,13 +1,14 @@
 ========================================================
-PyBrowserID: a python library for the BrowseriD Protocol
+PyBrowserID: a python library for the BrowserID Protocol
 ========================================================
 
-This is a python client library for the BrowserID protocol:
+This is a python client library for the BrowserID protocol that underlies
+Mozilla Persona:
 
-    https://browserid.org/
+    https://login.persona.org/
 
-For the vast majority of deployments, you will simply want to call the "verify"
-functon to verify a given assertion::
+For the vast majority of deployments, you will simply want to call the module-
+level "verify" functon to verify a given assertion::
 
     >>> data = browserid.verify(BROWSERIDASSERTION, "http://mysite.com")
     >>> print data["email"]
@@ -15,7 +16,7 @@ functon to verify a given assertion::
 
 The precise implementation of this function will change depending on the
 current recommendedations of the BrowserID team.  Currently it POSTs the
-assertion to the remote verifier services on browserid.org.
+assertion to the remote verifier services on persona.org.
 
 Note that you *must* specify your site's root URL as the second argument
 to that function.  This is the "expected audience" and is a key security
