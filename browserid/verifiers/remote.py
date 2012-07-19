@@ -12,7 +12,7 @@ from browserid.errors import (InvalidSignatureError,
                               ConnectionError,
                               AudienceMismatchError)
 
-BROWSERID_VERIFIER_URL = "https://browserid.org/verify"
+BROWSERID_VERIFIER_URL = "https://verifier.login.persona.org/verify"
 
 
 def _post(url, params):
@@ -26,7 +26,7 @@ def _post(url, params):
 class RemoteVerifier(Verifier):
     """Class for remote verification of BrowserID identity assertions.
 
-    This class submits assertions to the browserid.org verifier service
+    This class submits assertions to the persona.org verifier service
     for remote verification.  It's slower but potentially a little bit
     safer than the still-under-development LocalVerifier class.
     """
