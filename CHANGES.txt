@@ -1,4 +1,4 @@
-0.7.0 - XXXX-XX-XX
+0.7.0 - 2012-07-26
 ==================
 
   * Added a pure-python implementation of the JWT crypto routines, for
