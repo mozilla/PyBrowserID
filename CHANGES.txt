@@ -2,7 +2,9 @@
 ==================
 
   * Correct the pure-python RSA implementation.  Unfortunately this
-    requires a small backwards-incompatible API change on RSKey objects.
+    requires a small backwards-incompatible API change on RSKey objects
+    (the SIZE property is now DIGESTSIZE and it gives the size of the
+    internal hex digest string in bytes)
 
 0.7.0 - 2012-07-26
 ==================

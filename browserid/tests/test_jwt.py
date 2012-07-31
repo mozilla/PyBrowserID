@@ -17,19 +17,19 @@ import browserid.crypto.fallback
 
 
 class FALLBACK_RS64Key(browserid.crypto.fallback.RSKey):
-    SIGSIZE = jwt.RS64Key.SIGSIZE
+    DIGESTSIZE = jwt.RS64Key.DIGESTSIZE
     HASHNAME = jwt.RS64Key.HASHNAME
     HASHMOD = jwt.RS64Key.HASHMOD
 
 
 class FALLBACK_RS128Key(browserid.crypto.fallback.RSKey):
-    SIGSIZE = jwt.RS128Key.SIGSIZE
+    DIGESTSIZE = jwt.RS128Key.DIGESTSIZE
     HASHNAME = jwt.RS128Key.HASHNAME
     HASHMOD = jwt.RS128Key.HASHMOD
 
 
 class FALLBACK_RS256Key(browserid.crypto.fallback.RSKey):
-    SIGSIZE = jwt.RS256Key.SIGSIZE
+    DIGESTSIZE = jwt.RS256Key.DIGESTSIZE
     HASHNAME = jwt.RS256Key.HASHNAME
     HASHMOD = jwt.RS256Key.HASHMOD
 

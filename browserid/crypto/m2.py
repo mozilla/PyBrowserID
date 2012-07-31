@@ -67,7 +67,7 @@ class Key(object):
 class RSKey(Key):
 
     KEY_MODULE = _RSA
-    SIZE = None
+    DIGESTSIZE = None
     HASHNAME = None
     HASHMOD = None
 

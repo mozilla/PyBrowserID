@@ -53,11 +53,16 @@ RSA_DIGESTINFO_HEADER = {
 class RSKey(Key):
     """Generic base class for RSA key objects.
 
-    Concrete subclasses should provide the SIGSIZE, HASHNAME and HASHMOD
+    Concrete subclasses should provide the DIGESTSIZE, HASHNAME and HASHMOD
     attributes.
     """
 
-    SIGSIZE = None
+    # The size of the internal hex digest, in bytes.
+    # This must equal the bit-length of the modulus "n" divided by 4.
+    # The digest gets padded to this size to ensure that, when converted to
+    # an integer, it will be of a similar magnitude to the modulus.
+    DIGESTSIZE = None
+    # The name and hashlib module to use for calculating the digest.
     HASHNAME = None
     HASHMOD = None
 
@@ -74,7 +79,7 @@ class RSKey(Key):
         n, e = self.n, self.e
         m = long(signature.encode("hex"), 16)
         c = pow(m, e, n)
-        padded_digest = hex(c)[2:].rstrip("L").rjust(self.SIGSIZE, "0")
+        padded_digest = hex(c)[2:].rstrip("L").rjust(self.DIGESTSIZE, "0")
         return padded_digest == self._get_digest(signed_data)
 
     def sign(self, data):
@@ -88,7 +93,7 @@ class RSKey(Key):
     def _get_digest(self, data):
         digest = self.HASHMOD(data).hexdigest()
         padded_digest = "00" + RSA_DIGESTINFO_HEADER[self.HASHNAME] + digest
-        padding_len = (self.SIGSIZE) - 4 - len(padded_digest)
+        padding_len = (self.DIGESTSIZE) - 4 - len(padded_digest)
         padded_digest = "0001" + ("f" * padding_len) + padded_digest
         return padded_digest
 
@@ -99,7 +104,9 @@ class DSKey(Key):
     Concrete subclasses should provide the BITLENGTH and HASHMOD attributes.
     """
 
+    # The length of the signature to be produced, in bits.
     BITLENGTH = None
+    # The hashlib module used to calculate the digest.
     HASHMOD = None
 
     def __init__(self, data):
