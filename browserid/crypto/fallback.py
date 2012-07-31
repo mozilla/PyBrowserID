@@ -53,11 +53,11 @@ RSA_DIGESTINFO_HEADER = {
 class RSKey(Key):
     """Generic base class for RSA key objects.
 
-    Concrete subclasses should provide the SIZE, HASHNAME and HASHMOD
+    Concrete subclasses should provide the SIGSIZE, HASHNAME and HASHMOD
     attributes.
     """
 
-    SIZE = None
+    SIGSIZE = None
     HASHNAME = None
     HASHMOD = None
 
@@ -72,9 +72,9 @@ class RSKey(Key):
 
     def verify(self, signed_data, signature):
         n, e = self.n, self.e
-        m = long(signature, 16)
+        m = long(signature.encode("hex"), 16)
         c = pow(m, e, n)
-        padded_digest = hex(c)[2:].rstrip("L").rjust(self.SIZE * 2, "0")
+        padded_digest = hex(c)[2:].rstrip("L").rjust(self.SIGSIZE, "0")
         return padded_digest == self._get_digest(signed_data)
 
     def sign(self, data):
@@ -83,12 +83,12 @@ class RSKey(Key):
             raise ValueError("private key not present")
         c = long(self._get_digest(data), 16)
         m = pow(c, d, n)
-        return hex(m)[2:].rstrip("L")
+        return unhexlify(hex(m)[2:].rstrip("L"))
 
     def _get_digest(self, data):
         digest = self.HASHMOD(data).hexdigest()
         padded_digest = "00" + RSA_DIGESTINFO_HEADER[self.HASHNAME] + digest
-        padding_len = (self.SIZE * 2) - 4 - len(padded_digest)
+        padding_len = (self.SIGSIZE) - 4 - len(padded_digest)
         padded_digest = "0001" + ("f" * padding_len) + padded_digest
         return padded_digest
 

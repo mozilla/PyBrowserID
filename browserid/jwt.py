@@ -72,19 +72,19 @@ def load_key(algorithm, key_data):
 
 
 class RS64Key(RSKey):
-    SIZE = 64
+    SIGSIZE = 256
     HASHNAME = "sha256"
     HASHMOD = hashlib.sha256
 
 
 class RS128Key(RSKey):
-    SIZE = 128
+    SIGSIZE = 320
     HASHNAME = "sha256"
     HASHMOD = hashlib.sha256
 
 
 class RS256Key(RSKey):
-    SIZE = 256
+    SIGSIZE = 512
     HASHNAME = "sha256"
     HASHMOD = hashlib.sha256
 
