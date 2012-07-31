@@ -32,4 +32,4 @@ setup(name='PyBrowserID',
       zip_safe=False,
       install_requires=requires,
       tests_require=tests_require,
-      test_suite="browserid")
+      test_suite="browserid.tests")
