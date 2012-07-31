@@ -98,6 +98,12 @@ def new_key((e, n, d)):
     return RSA.RSA(rsa, 1)
 
 
+# Calling sign() on a public key will segfault M2Crypto.
+# Stub it out so that it raises an error instead.
+if "sign" not in RSA.RSA_pub.__dict__:
+    RSA.RSA_pub.sign = RSA.RSA_pub.private_encrypt
+
+
 @maybe_provide(DSA)
 def load_pub_key_params(p, q, g, pub):
     """Create a DSA_pub object from parameters and key."""
