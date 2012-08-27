@@ -7,6 +7,8 @@ Network-related utility functions for PyBrowserID.
 
 """
 
+import socket
+
 import requests
 from requests.exceptions import RequestException
 
@@ -17,7 +19,7 @@ def get(url, verify=True):
     """Fetch the specified URL with a GET request."""
     try:
         return requests.get(url, verify=verify)
-    except RequestException, e:
+    except (RequestException, socket.error), e:
         msg = "Failed to GET %s. Reason: %s" % (url, str(e))
         raise ConnectionError(msg)
 
@@ -26,6 +28,6 @@ def post(url, params={}, verify=True):
     """Fetch the specified URL with a POST request."""
     try:
         return requests.post(url, params, verify=verify)
-    except RequestException, e:
+    except (RequestException, socket.error), e:
         msg = "Failed to POST %s. Reason: %s" % (url, str(e))
         raise ConnectionError(msg)

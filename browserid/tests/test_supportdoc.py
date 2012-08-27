@@ -1,4 +1,5 @@
 import json
+import socket
 
 from mock import Mock, patch
 from requests.exceptions import RequestException
@@ -55,6 +56,8 @@ class TestFetchPublicKey(unittest.TestCase):
         """If there is an error connecting, raise a ConnectionError."""
         with self.assertRaises(ConnectionError):
             self._fetch('test.com', side_effect=RequestException)
+        with self.assertRaises(ConnectionError):
+            self._fetch('test.com', side_effect=socket.error)
 
     @patch('browserid.supportdoc.fetch_support_document')
     def test_missing_support_document(self, fetch):
