@@ -15,9 +15,8 @@ WELL_KNOWN_URL = "/.well-known/browserid"
 
 DEFAULT_MAX_DELEGATIONS = 6
 
-DEFAULT_TRUSTED_SECONDARIES = ("browserid.org", "diresworb.org",
-                               "dev.diresworb.org" "login.anosrep.org",
-                               "login.persona.org")
+DEFAULT_TRUSTED_SECONDARIES = ("login.persona.org", "login.anosrep.org", 
+                               "login.dev.anosrep.org")
 
 
 class SupportDocumentManager(object):
