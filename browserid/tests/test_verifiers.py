@@ -202,7 +202,7 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
     def setUp(self):
         self.verifier = RemoteVerifier(["*"])
 
-    @patch('browserid.verifiers.remote.requests')
+    @patch('browserid.netutils.requests')
     def _verify(self, requests, response_text='', assertion=EXPIRED_ASSERTION,
                 status_code=200):
         response = Mock()
@@ -222,14 +222,14 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
         with self.assertRaises(ConnectionError):
             self._verify(response_text='SERVER RETURNS INVALID JSON')
 
-    @patch('browserid.verifiers.remote.requests')
+    @patch('browserid.netutils.requests')
     def test_handling_of_incorrect_audience_returned_by_server(self, requests):
         response_text = ('{"email": "t@m.com", "status": "okay", '
                          '"audience": "WRONG"}')
         with self.assertRaises(AudienceMismatchError):
             self._verify(response_text=response_text)
 
-    @patch('browserid.verifiers.remote.requests')
+    @patch('browserid.netutils.requests')
     def test_handling_of_500_error_from_server(self, requests):
         with self.assertRaises(ValueError):
             self._verify(status_code=500)

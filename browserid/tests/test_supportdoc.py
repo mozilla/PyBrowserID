@@ -28,7 +28,7 @@ BROWSERID_PK_PY = json.loads(BROWSERID_PK)
 
 class TestFetchPublicKey(unittest.TestCase):
 
-    @patch('browserid.supportdoc.requests')
+    @patch('browserid.netutils.requests')
     def _fetch(self, hostname, requests, well_known_url=None,
                side_effect=None, response_text='', status_code=200):
         response = Mock()
@@ -78,7 +78,7 @@ class TestFetchPublicKey(unittest.TestCase):
             return response
         post.called = False
 
-        with patch('browserid.supportdoc.requests') as requests:
+        with patch('browserid.netutils.requests') as requests:
             requests.post = post
             with self.assertRaises(InvalidIssuerError):
                 fetch_support_document('test.com')
