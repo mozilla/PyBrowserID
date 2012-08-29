@@ -4,23 +4,13 @@
 
 import json
 
-import requests
-from requests.exceptions import RequestException
-
+from browserid import netutils
 from browserid.verifiers import Verifier
 from browserid.errors import (InvalidSignatureError,
                               ConnectionError,
                               AudienceMismatchError)
 
 BROWSERID_VERIFIER_URL = "https://verifier.login.persona.org/verify"
-
-
-def _post(url, params):
-    """Send HTTP POST with requests."""
-    try:
-        return requests.post(url, params)
-    except RequestException, e:
-        raise ConnectionError(str(e))
 
 
 class RemoteVerifier(Verifier):
@@ -57,8 +47,8 @@ class RemoteVerifier(Verifier):
         # for inclusion in the request to the remote verifier service.
         audience = self.check_audience(assertion, audience)
 
-        response = _post(self.verifier_url, {'assertion': assertion,
-                                             'audience': audience})
+        response = netutils.post(self.verifier_url, {'assertion': assertion,
+                                                     'audience': audience})
 
         # BrowserID server sends "500 server error" for broken assertions.
         # For now, just translate that directly.  Should check by hand.

@@ -8,7 +8,7 @@ import warnings
 from browserid import jwt
 from browserid.verifiers import Verifier
 from browserid.supportdoc import SupportDocumentManager
-from browserid.utils import  unbundle_certs_and_assertion
+from browserid.utils import unbundle_certs_and_assertion
 from browserid.errors import (InvalidSignatureError,
                               ExpiredSignatureError,
                               UnsupportedCertChainError)

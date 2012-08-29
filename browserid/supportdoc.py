@@ -7,9 +7,7 @@ import threading
 import time
 from urlparse import urljoin
 
-import requests
-from requests.exceptions import RequestException
-
+from browserid import netutils
 from browserid.errors import (ConnectionError,
                               InvalidIssuerError)
 
@@ -200,15 +198,6 @@ class FIFOCache(object):
         return len(self.items_map)
 
 
-def _get(url, verify):
-    """Fetch resource with requests."""
-    try:
-        return requests.get(url, verify=verify)
-    except RequestException, e:
-        msg = "Impossible to get %s. Reason: %s" % (url, str(e))
-        raise ConnectionError(msg)
-
-
 def fetch_support_document(hostname, well_known_url=None, verify=None):
     """Fetch the BrowserID well-known file for the given hostname.
 
@@ -224,7 +213,7 @@ def fetch_support_document(hostname, well_known_url=None, verify=None):
     # Try to find the support document.  If it can't be found then we
     # raise an InvalidIssuerError.  Any other connection-related
     # errors are passed back up to the caller.
-    response = _get(urljoin(hostname, well_known_url), verify=verify)
+    response = netutils.get(urljoin(hostname, well_known_url), verify=verify)
     if response.status_code == 200:
         try:
             data = json.loads(response.text)
@@ -234,7 +223,7 @@ def fetch_support_document(hostname, well_known_url=None, verify=None):
     else:
         # The well-known file was not found, try falling back to
         # just "/pk".
-        response = _get(urljoin(hostname, '/pk'), verify=verify)
+        response = netutils.get(urljoin(hostname, '/pk'), verify=verify)
         if response.status_code == 200:
             try:
                 key = json.loads(response.text)

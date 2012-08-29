@@ -1,4 +1,5 @@
 import json
+import socket
 
 from mock import Mock, patch
 from requests.exceptions import RequestException
@@ -28,14 +29,14 @@ BROWSERID_PK_PY = json.loads(BROWSERID_PK)
 
 class TestFetchPublicKey(unittest.TestCase):
 
-    @patch('browserid.supportdoc.requests')
+    @patch('browserid.netutils.requests')
     def _fetch(self, hostname, requests, well_known_url=None,
                side_effect=None, response_text='', status_code=200):
         response = Mock()
         response.text = response_text
         response.status_code = status_code
-        requests.get.side_effect = side_effect
-        requests.get.return_value = response
+        requests.request.side_effect = side_effect
+        requests.request.return_value = response
 
         kwargs = {}
         if well_known_url is not None:
@@ -55,6 +56,8 @@ class TestFetchPublicKey(unittest.TestCase):
         """If there is an error connecting, raise a ConnectionError."""
         with self.assertRaises(ConnectionError):
             self._fetch('test.com', side_effect=RequestException)
+        with self.assertRaises(ConnectionError):
+            self._fetch('test.com', side_effect=socket.error)
 
     @patch('browserid.supportdoc.fetch_support_document')
     def test_missing_support_document(self, fetch):
@@ -69,7 +72,7 @@ class TestFetchPublicKey(unittest.TestCase):
     def test_malformed_pub_key_document(self):
         # We need the first request to raise a 404, so we replace
         # post with a custom function here.
-        def post(url, data):
+        def post(url, data, verify=True):
             response = Mock()
             if not post.called:
                 response.status_code = 404
@@ -78,8 +81,8 @@ class TestFetchPublicKey(unittest.TestCase):
             return response
         post.called = False
 
-        with patch('browserid.supportdoc.requests') as requests:
-            requests.post = post
+        with patch('browserid.netutils.requests') as requests:
+            requests.request = post
             with self.assertRaises(InvalidIssuerError):
                 fetch_support_document('test.com')
 
