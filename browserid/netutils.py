@@ -17,17 +17,18 @@ from browserid.errors import ConnectionError
 
 def get(url, verify=True):
     """Fetch the specified URL with a GET request."""
-    try:
-        return requests.get(url, verify=verify)
-    except (RequestException, socket.error), e:
-        msg = "Failed to GET %s. Reason: %s" % (url, str(e))
-        raise ConnectionError(msg)
+    return request("GET", url, verify=verify)
 
 
-def post(url, params={}, verify=True):
+def post(url, data={}, verify=True):
     """Fetch the specified URL with a POST request."""
+    return request("POST", url, data=data, verify=verify)
+
+
+def request(method, url, **kwds):
+    """Make an HTTP request to the given URL."""
     try:
-        return requests.post(url, params, verify=verify)
+        return requests.request(method, url, **kwds)
     except (RequestException, socket.error), e:
-        msg = "Failed to POST %s. Reason: %s" % (url, str(e))
+        msg = "Failed to %s %s. Reason: %s" % (method, url, str(e))
         raise ConnectionError(msg)

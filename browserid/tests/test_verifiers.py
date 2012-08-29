@@ -208,7 +208,7 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
         response = Mock()
         response.text = response_text
         response.status_code = status_code
-        requests.post.return_value = response
+        requests.request.return_value = response
 
         return self.verifier.verify(assertion)
 

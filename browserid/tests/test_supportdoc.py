@@ -35,8 +35,8 @@ class TestFetchPublicKey(unittest.TestCase):
         response = Mock()
         response.text = response_text
         response.status_code = status_code
-        requests.get.side_effect = side_effect
-        requests.get.return_value = response
+        requests.request.side_effect = side_effect
+        requests.request.return_value = response
 
         kwargs = {}
         if well_known_url is not None:
@@ -72,7 +72,7 @@ class TestFetchPublicKey(unittest.TestCase):
     def test_malformed_pub_key_document(self):
         # We need the first request to raise a 404, so we replace
         # post with a custom function here.
-        def post(url, data):
+        def post(url, data, verify=True):
             response = Mock()
             if not post.called:
                 response.status_code = 404
@@ -82,7 +82,7 @@ class TestFetchPublicKey(unittest.TestCase):
         post.called = False
 
         with patch('browserid.netutils.requests') as requests:
-            requests.post = post
+            requests.request = post
             with self.assertRaises(InvalidIssuerError):
                 fetch_support_document('test.com')
 
