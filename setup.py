@@ -3,10 +3,6 @@ import os
 import sys
 from setuptools import setup, find_packages
 
-setup_kwds = {}
-if sys.version_info > (3,):
-    setup_kwds["use_2to3"] = True
-
 here = os.path.abspath(os.path.dirname(__file__))
 
 with open(os.path.join(here, 'README.rst')) as f:
@@ -18,6 +14,8 @@ with open(os.path.join(here, 'CHANGES.txt')) as f:
 requires = ['requests']
 
 tests_require = requires + ['mock']
+if sys.version_info < (2, 7):
+    tests_require.append("unittest2")
 
 setup(name='PyBrowserID',
       version='0.9.0',
@@ -37,5 +35,4 @@ setup(name='PyBrowserID',
       zip_safe=False,
       install_requires=requires,
       tests_require=tests_require,
-      test_suite="browserid.tests",
-      **setup_kwds)
+      test_suite="browserid.tests")

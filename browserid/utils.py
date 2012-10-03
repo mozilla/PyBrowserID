@@ -7,8 +7,14 @@ Utility functions for PyBrowserID.
 
 """
 
+import sys
 import json
 import base64
+
+
+if sys.version_info > (3,):
+    long = int
+    unicode = str
 
 
 def decode_bytes(value):
@@ -31,7 +37,7 @@ def decode_bytes(value):
         raise ValueError("incorrect b64 encoding")
     try:
         return base64.urlsafe_b64decode(value)
-    except TypeError, e:
+    except TypeError as e:
         raise ValueError(str(e))
 
 
@@ -123,6 +129,36 @@ def get_assertion_info(assertion):
         # Get the audience out of the assertion token.
         payload = decode_json_bytes(assertion.split(".")[1])
         info["audience"] = payload["aud"]
-    except (TypeError, KeyError), e:
-        raise ValueError(str(e))
+    except (TypeError, KeyError) as e:
+        raise ValueError(e)
     return info
+
+
+def to_int(value, base=10):
+    """Convert the given value to a python integer.
+
+    The given value can be an existing int or long object, or a string in
+    the given base.  The result will always be a long on python2 and an
+    int on python3 (which has not concept of a separate "long" type).
+    """
+    if not isinstance(value, str):
+        return long(value)
+    return long(value.replace(" ", "").replace("\n", "").strip(), base)
+
+
+def to_hex(value):
+    """Convert the given value to a long encoded into a hex string."""
+    return hex(to_int(value))[2:].rstrip("L")
+
+
+def u(value):
+    """Helper function for constructing unicode string literals.
+
+    Use it in lieu of the u"" prefix, like this:
+
+        data = u("unicode string")
+
+    """
+    if sys.version_info < (3,):
+        value = value.decode("unicode-escape")
+    return value

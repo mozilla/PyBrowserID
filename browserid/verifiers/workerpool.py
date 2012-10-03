@@ -52,7 +52,7 @@ class WorkerPoolVerifier(object):
         self._result_thread = threading.Thread(target=self._run_result_thread)
         self._result_thread.start()
         self._processes = []
-        for n in xrange(num_procs):
+        for n in range(num_procs):
             proc = multiprocessing.Process(target=self._run_worker)
             self._processes.append(proc)
             proc.start()
@@ -105,7 +105,7 @@ class WorkerPoolVerifier(object):
         with self._lock:
             if self._work_queue is None:
                 return
-            for x in xrange(self.num_procs):
+            for x in range(self.num_procs):
                 self._work_queue.put((None, None, None))
             for proc in self._processes:
                 proc.join()
@@ -142,7 +142,7 @@ class WorkerPoolVerifier(object):
             try:
                 result = self.verifier.verify(*args, **kwds)
                 ok = True
-            except Exception, e:
+            except Exception as e:
                 result = e
                 ok = False
             self._result_queue.put((job_id, ok, result))

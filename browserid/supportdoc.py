@@ -1,11 +1,17 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
+
+import sys
 import json
 import collections
 import threading
 import time
-from urlparse import urljoin
+
+if sys.version_info > (3,):
+    from urllib.parse import urljoin
+else:
+    from urlparse import urljoin  # NOQA
 
 from browserid import netutils
 from browserid.errors import (ConnectionError,
@@ -45,7 +51,7 @@ class SupportDocumentManager(object):
             error = supportdoc = None
             try:
                 supportdoc = self.fetch_support_document(hostname)
-            except Exception, e:  # NOQA
+            except Exception as e:  # NOQA
                 error = e
             self.cache[hostname] = (error, supportdoc)
         if error is not None:

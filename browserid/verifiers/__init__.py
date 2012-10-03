@@ -2,12 +2,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import sys
 import re
 import fnmatch
 
 from browserid.errors import AudienceMismatchError
 from browserid.utils import (unbundle_certs_and_assertion,
                              decode_json_bytes)
+
+
+if sys.version_info > (3,):
+    basestring = (str,)
 
 
 class Verifier(object):

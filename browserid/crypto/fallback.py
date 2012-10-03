@@ -68,16 +68,16 @@ class RSKey(Key):
 
     def __init__(self, data):
         _check_keys(data, ("e", "n"))
-        self.e = long(data["e"])
-        self.n = long(data["n"])
+        self.e = int(data["e"])
+        self.n = int(data["n"])
         try:
-            self.d = long(data["d"])
+            self.d = int(data["d"])
         except KeyError:
             self.d = None
 
     def verify(self, signed_data, signature):
         n, e = self.n, self.e
-        m = long(hexlify(signature), 16)
+        m = int(hexlify(signature), 16)
         c = pow(m, e, n)
         digest = hex(c)[2:].rstrip("L").encode("ascii")
         padded_digest = digest.rjust(self.DIGESTSIZE, b"0")
@@ -87,7 +87,7 @@ class RSKey(Key):
         n, e, d = self.n, self.e, self.d
         if not d:
             raise ValueError("private key not present")
-        c = long(self._get_digest(data), 16)
+        c = int(self._get_digest(data), 16)
         m = pow(c, d, n)
         return unhexlify(hex(m)[2:].rstrip("L").encode("ascii"))
 
@@ -112,12 +112,12 @@ class DSKey(Key):
 
     def __init__(self, data):
         _check_keys(data, ("p", "q", "g", "y"))
-        self.p = long(data["p"], 16)
-        self.q = long(data["q"], 16)
-        self.g = long(data["g"], 16)
-        self.y = long(data["y"], 16)
+        self.p = int(data["p"], 16)
+        self.q = int(data["q"], 16)
+        self.g = int(data["g"], 16)
+        self.y = int(data["y"], 16)
         if "x" in data:
-            self.x = long(data["x"], 16)
+            self.x = int(data["x"], 16)
         else:
             self.x = None
 
@@ -128,14 +128,14 @@ class DSKey(Key):
         signature = signature.rjust(hexlength * 2, b"0")
         if len(signature) != hexlength * 2:
             return False
-        r = long(signature[:hexlength], 16)
-        s = long(signature[hexlength:], 16)
+        r = int(signature[:hexlength], 16)
+        s = int(signature[hexlength:], 16)
         if r <= 0 or r >= q:
             return False
         if s <= 0 or s >= q:
             return False
         w = modinv(s, q)
-        u1 = (long(self.HASHMOD(signed_data).hexdigest(), 16) * w) % q
+        u1 = (int(self.HASHMOD(signed_data).hexdigest(), 16) * w) % q
         u2 = (r * w) % q
         v = ((pow(g, u1, p) * pow(y, u2, p)) % p) % q
         return (v == r)
@@ -147,13 +147,13 @@ class DSKey(Key):
         # We need to do lots of if-not-this-then-start-over type tests.
         # A while loop with continue statements is the cleanest way to do so.
         while True:
-            k = long(hexlify(os.urandom(self.BITLENGTH // 8)), 16) % q
+            k = int(hexlify(os.urandom(self.BITLENGTH // 8)), 16) % q
             if k == 0:
                 continue
             r = pow(g, k, p) % q
             if r == 0:
                 continue
-            h = (long(self.HASHMOD(data).hexdigest(), 16) + (x * r)) % q
+            h = (int(self.HASHMOD(data).hexdigest(), 16) + (x * r)) % q
             s = (modinv(k, q) * h) % q
             if s == 0:
                 continue
@@ -183,7 +183,7 @@ def modinv(a, m):
 
 
 def int2bytes(x):
-    """Convert a Python long integer to bigendian bytestring."""
+    """Convert a Python integer to bigendian bytestring."""
     # It's faster to go via hex encoding in C code than it is to try
     # encoding directly into binary with a python-level loop.
     # (and hex-slice-strip seems consistently faster than using "%x" format)

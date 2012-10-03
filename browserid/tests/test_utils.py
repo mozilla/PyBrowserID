@@ -4,7 +4,7 @@
 
 from browserid.utils import encode_bytes, decode_bytes
 from browserid.utils import encode_json_bytes, decode_json_bytes
-from browserid.utils import get_assertion_info
+from browserid.utils import get_assertion_info, u
 from browserid.tests.support import unittest
 
 
@@ -12,8 +12,8 @@ class TestUtils(unittest.TestCase):
 
     def test_encode_decode_bytes(self):
         self.assertEquals(b"HELLO", decode_bytes(encode_bytes(b"HELLO")))
-        self.assertEquals(b"HELLO", decode_bytes(encode_bytes(u"HELLO")))
-        self.assertRaises(ValueError, decode_bytes, u"\N{SNOWMAN}")
+        self.assertEquals(b"HELLO", decode_bytes(encode_bytes(u("HELLO"))))
+        self.assertRaises(ValueError, decode_bytes, u("\N{SNOWMAN}"))
         self.assertRaises(ValueError, decode_bytes, "A===")
 
     def test_encode_decode_json_bytes(self):

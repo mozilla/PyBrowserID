@@ -29,6 +29,6 @@ def request(method, url, **kwds):
     """Make an HTTP request to the given URL."""
     try:
         return requests.request(method, url, **kwds)
-    except (RequestException, socket.error), e:
+    except (RequestException, socket.error) as e:
         msg = "Failed to %s %s. Reason: %s" % (method, url, str(e))
         raise ConnectionError(msg)
