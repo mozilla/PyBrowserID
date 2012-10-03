@@ -24,9 +24,9 @@ def decode_bytes(value):
         value = value.encode("ascii")
     pad = len(value) % 4
     if pad == 2:
-        value += "=="
+        value += b"=="
     elif pad == 3:
-        value += "="
+        value += b"="
     elif pad != 0:
         raise ValueError("incorrect b64 encoding")
     try:
@@ -44,7 +44,7 @@ def encode_bytes(value):
     """
     if isinstance(value, unicode):
         value = value.encode("ascii")
-    return base64.urlsafe_b64encode(value).rstrip("=")
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
 
 
 def decode_json_bytes(value):
@@ -54,7 +54,7 @@ def decode_json_bytes(value):
     base64 format.  If the bytes and invalid or do not encode a proper object,
     ValueError is raised.
     """
-    obj = json.loads(decode_bytes(value))
+    obj = json.loads(decode_bytes(value).decode("utf8"))
     if not isinstance(obj, dict):
         raise ValueError("JSON did not contain an object")
     return obj
@@ -64,7 +64,7 @@ def encode_json_bytes(obj):
     """Encode an object as JSON bytes in the BrowserID base64 format."""
     if not isinstance(obj, dict):
         raise ValueError("Value is not a JSON object")
-    return encode_bytes(json.dumps(obj))
+    return encode_bytes(json.dumps(obj).encode("utf8"))
 
 
 def bundle_certs_and_assertion(certificates, assertion, new_style=True):

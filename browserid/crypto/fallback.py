@@ -14,7 +14,7 @@ automatically if you have that package installed.
 """
 
 import os
-from binascii import unhexlify
+from binascii import hexlify, unhexlify
 
 
 class Key(object):
@@ -45,8 +45,8 @@ class Key(object):
 #  These constants are needed for encoding the name of the hash
 #  algorithm into the RSA signature, per PKCS #1.
 RSA_DIGESTINFO_HEADER = {
-    "sha1": "3021300906052b0e03021a05000414",
-    "sha256": "3031300d060960864801650304020105000420",
+    "sha1": b"3021300906052b0e03021a05000414",
+    "sha256": b"3031300d060960864801650304020105000420",
 }
 
 
@@ -77,9 +77,10 @@ class RSKey(Key):
 
     def verify(self, signed_data, signature):
         n, e = self.n, self.e
-        m = long(signature.encode("hex"), 16)
+        m = long(hexlify(signature), 16)
         c = pow(m, e, n)
-        padded_digest = hex(c)[2:].rstrip("L").rjust(self.DIGESTSIZE, "0")
+        digest = hex(c)[2:].rstrip("L").encode("ascii")
+        padded_digest = digest.rjust(self.DIGESTSIZE, b"0")
         return padded_digest == self._get_digest(signed_data)
 
     def sign(self, data):
@@ -88,13 +89,13 @@ class RSKey(Key):
             raise ValueError("private key not present")
         c = long(self._get_digest(data), 16)
         m = pow(c, d, n)
-        return unhexlify(hex(m)[2:].rstrip("L"))
+        return unhexlify(hex(m)[2:].rstrip("L").encode("ascii"))
 
     def _get_digest(self, data):
-        digest = self.HASHMOD(data).hexdigest()
-        padded_digest = "00" + RSA_DIGESTINFO_HEADER[self.HASHNAME] + digest
+        digest = self.HASHMOD(data).hexdigest().encode("ascii")
+        padded_digest = b"00" + RSA_DIGESTINFO_HEADER[self.HASHNAME] + digest
         padding_len = (self.DIGESTSIZE) - 4 - len(padded_digest)
-        padded_digest = "0001" + ("f" * padding_len) + padded_digest
+        padded_digest = b"0001" + (b"f" * padding_len) + padded_digest
         return padded_digest
 
 
@@ -122,9 +123,9 @@ class DSKey(Key):
 
     def verify(self, signed_data, signature):
         p, q, g, y = self.p, self.q, self.g, self.y
-        signature = signature.encode("hex")
-        hexlength = self.BITLENGTH / 4
-        signature = signature.rjust(hexlength * 2, "0")
+        signature = hexlify(signature)
+        hexlength = self.BITLENGTH // 4
+        signature = signature.rjust(hexlength * 2, b"0")
         if len(signature) != hexlength * 2:
             return False
         r = long(signature[:hexlength], 16)
@@ -146,7 +147,7 @@ class DSKey(Key):
         # We need to do lots of if-not-this-then-start-over type tests.
         # A while loop with continue statements is the cleanest way to do so.
         while True:
-            k = long(os.urandom(self.BITLENGTH / 8).encode("hex"), 16) % q
+            k = long(hexlify(os.urandom(self.BITLENGTH // 8)), 16) % q
             if k == 0:
                 continue
             r = pow(g, k, p) % q
@@ -159,9 +160,9 @@ class DSKey(Key):
             break
         assert 0 < r < q
         assert 0 < s < q
-        bytelength = self.BITLENGTH / 8
-        r_bytes = int2bytes(r).rjust(bytelength, "\x00")
-        s_bytes = int2bytes(s).rjust(bytelength, "\x00")
+        bytelength = self.BITLENGTH // 8
+        r_bytes = int2bytes(r).rjust(bytelength, b"\x00")
+        s_bytes = int2bytes(s).rjust(bytelength, b"\x00")
         return r_bytes + s_bytes
 
 
@@ -186,9 +187,9 @@ def int2bytes(x):
     # It's faster to go via hex encoding in C code than it is to try
     # encoding directly into binary with a python-level loop.
     # (and hex-slice-strip seems consistently faster than using "%x" format)
-    hexbytes = hex(x)[2:].rstrip("L")
+    hexbytes = hex(x)[2:].rstrip("L").encode("ascii")
     if len(hexbytes) % 2:
-        hexbytes = "0" + hexbytes
+        hexbytes = b"0" + hexbytes
     return unhexlify(hexbytes)
 
 

@@ -11,8 +11,8 @@ from browserid.tests.support import unittest
 class TestUtils(unittest.TestCase):
 
     def test_encode_decode_bytes(self):
-        self.assertEquals("HELLO", decode_bytes(encode_bytes("HELLO")))
-        self.assertEquals("HELLO", decode_bytes(encode_bytes(u"HELLO")))
+        self.assertEquals(b"HELLO", decode_bytes(encode_bytes(b"HELLO")))
+        self.assertEquals(b"HELLO", decode_bytes(encode_bytes(u"HELLO")))
         self.assertRaises(ValueError, decode_bytes, u"\N{SNOWMAN}")
         self.assertRaises(ValueError, decode_bytes, "A===")
 

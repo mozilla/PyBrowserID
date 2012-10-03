@@ -88,7 +88,7 @@ def get_keypair(hostname):
     p = DUMMY_P
     g = DUMMY_G
     # Generate private key x by "some random method".
-    x = long(hashlib.sha1(hostname).hexdigest(), 16)
+    x = long(hashlib.sha1(hostname.encode("utf8")).hexdigest(), 16)
     assert x != 0, "SHA1(hostname) is zero - what are the odds?!"
     # Calculate public key y as usual.
     y = pow(g, x, p)

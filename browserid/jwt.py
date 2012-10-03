@@ -33,7 +33,8 @@ def generate(payload, key):
     alg = key.__class__.__name__[:-3]
     algorithm = encode_json_bytes({"alg": alg})
     payload = encode_json_bytes(payload)
-    signature = encode_bytes(key.sign(".".join((algorithm, payload))))
+    signed_data = ".".join((algorithm, payload)).encode("ascii")
+    signature = encode_bytes(key.sign(signed_data))
     return ".".join((algorithm, payload, signature))
 
 
@@ -55,7 +56,7 @@ class JWT(object):
         if not self.algorithm.startswith(key_data["algorithm"]):
             return False
         key = load_key(self.algorithm, key_data)
-        return key.verify(self.signed_data, self.signature)
+        return key.verify(self.signed_data.encode("ascii"), self.signature)
 
 
 def load_key(algorithm, key_data):

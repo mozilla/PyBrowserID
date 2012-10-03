@@ -114,12 +114,12 @@ class DSKey(Key):
         if "x" not in data:
             self.x = None
             self.keyobj = _DSA.load_pub_key_params(int2mpint(p), int2mpint(q),
-                                                int2mpint(g), int2mpint(y))
+                                                   int2mpint(g), int2mpint(y))
         else:
             self.x = x = long(data["x"], 16)
             self.keyobj = _DSA.load_key_params(int2mpint(p), int2mpint(q),
-                                            int2mpint(g), int2mpint(y),
-                                            int2mpint(x))
+                                               int2mpint(g), int2mpint(y),
+                                               int2mpint(x))
 
     @classmethod
     def from_pem_data(cls, data=None, filename=None):
@@ -133,9 +133,9 @@ class DSKey(Key):
 
     def verify(self, signed_data, signature):
         # Restore any leading zero bytes that might have been stripped.
-        signature = signature.encode("hex")
-        hexlength = self.BITLENGTH / 4
-        signature = signature.rjust(hexlength * 2, "0")
+        signature = hexlify(signature)
+        hexlength = self.BITLENGTH // 4
+        signature = signature.rjust(hexlength * 2, b"0")
         if len(signature) != hexlength * 2:
             return False
         # Split the signature into "r" and "s" components.
@@ -156,9 +156,9 @@ class DSKey(Key):
         r, s = self.keyobj.sign(digest)
         # We need precisely "bytelength" bytes from each integer.
         # M2Crypto might give us more or less, so snip and pad appropriately.
-        bytelength = self.BITLENGTH / 8
-        r_bytes = r[4:].rjust(bytelength, "\x00")[-bytelength:]
-        s_bytes = s[4:].rjust(bytelength, "\x00")[-bytelength:]
+        bytelength = self.BITLENGTH // 8
+        r_bytes = r[4:].rjust(bytelength, b"\x00")[-bytelength:]
+        s_bytes = s[4:].rjust(bytelength, b"\x00")[-bytelength:]
         return r_bytes + s_bytes
 
 
@@ -173,20 +173,20 @@ def int2mpint(x):
     # It's faster to go via hex encoding in C code than it is to try
     # encoding directly into binary with a python-level loop.
     # (and hex-slice-strip seems consistently faster than using "%x" format)
-    hexbytes = hex(x)[2:].rstrip("L")
+    hexbytes = hex(x)[2:].rstrip("L").encode("ascii")
     if len(hexbytes) % 2:
-        hexbytes = "0" + hexbytes
+        hexbytes = b"0" + hexbytes
     bytes = unhexlify(hexbytes)
     # Add an extra significant byte that's just zero.  I think this is only
     # necessary if the number has its MSB set, to prevent it being mistaken
     # for a sign bit.  I do it uniformly since it's valid and simpler.
-    return struct.pack(">I", len(bytes) + 1) + "\x00" + bytes
+    return struct.pack(">I", len(bytes) + 1) + b"\x00" + bytes
 
 
 def mpint2int(data):
     """Convert a string in OpenSSL's MPINT format to a Python long integer."""
     hexbytes = hexlify(data[4:])
-    return int(hexbytes, 16)
+    return long(hexbytes, 16)
 
 
 def _check_keys(data, keys):

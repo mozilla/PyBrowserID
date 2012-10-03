@@ -1,6 +1,11 @@
 
 import os
+import sys
 from setuptools import setup, find_packages
+
+setup_kwds = {}
+if sys.version_info > (3,):
+    setup_kwds["use_2to3"] = True
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -32,4 +37,5 @@ setup(name='PyBrowserID',
       zip_safe=False,
       install_requires=requires,
       tests_require=tests_require,
-      test_suite="browserid.tests")
+      test_suite="browserid.tests",
+      **setup_kwds)
