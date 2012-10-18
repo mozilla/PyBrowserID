@@ -89,7 +89,7 @@ class RSKey(Key):
             raise ValueError("private key not present")
         c = int(self._get_digest(data), 16)
         m = pow(c, d, n)
-        return unhexlify(hex(m)[2:].rstrip("L").encode("ascii"))
+        return int2bytes(m)
 
     def _get_digest(self, data):
         digest = self.HASHMOD(data).hexdigest().encode("ascii")
