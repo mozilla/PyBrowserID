@@ -2,7 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import tempfile
+from binascii import hexlify
 
 from browserid.tests.support import get_keypair, unittest
 from browserid.utils import encode_json_bytes, encode_bytes, to_int, to_hex
@@ -214,6 +216,16 @@ class KeyPairTests(object):
         self.assertTrue(pubkey.verify(b"hello", key.sign(b"hello")))
         self.assertFalse(pubkey.verify(b"HELLO", key.sign(b"hello")))
         self.assertRaises(Exception, pubkey.sign, b"hello")
+        # It should be able to handle signing arbitrary strings.
+        # In the past we've had issues with things like e.g. leading zero
+        # bytes, odd-versus-even length strings, etc.
+        self.assertTrue(pubkey.verify(b"", key.sign(b"")))
+        self.assertTrue(pubkey.verify(b"\x00", key.sign(b"\x00")))
+        self.assertTrue(pubkey.verify(b"\x00EST", key.sign(b"\x00EST")))
+        for _ in range(20):
+            size = int(hexlify(os.urandom(2)), 16)
+            data = os.urandom(size)
+            self.assertTrue(pubkey.verify(data, key.sign(data)))
         # And it should gracefully handle a variety of stupid input:
         #   - signature too long
         self.assertFalse(pubkey.verify(b"TEST", b"X" * 100))
