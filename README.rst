@@ -15,7 +15,7 @@ level "verify" functon to verify a given assertion::
     "test@example.com"
 
 The precise implementation of this function will change depending on the
-current recommendedations of the BrowserID team.  Currently it POSTs the
+current recommendations of the BrowserID team.  Currently it POSTs the
 assertion to the remote verifier services on persona.org.
 
 Note that you *must* specify your site's root URL as the second argument
