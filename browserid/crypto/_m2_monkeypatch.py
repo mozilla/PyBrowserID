@@ -89,8 +89,9 @@ def dsa_set_priv(dsa, value):
 
 
 @maybe_provide(RSA)
-def new_key((e, n, d)):
+def new_key(parameters):
     """Create a RSA object from the given parameters."""
+    e, n, d = parameters
     rsa = m2.rsa_new()
     m2.rsa_set_e(rsa, e)
     m2.rsa_set_n(rsa, n)
