@@ -3,7 +3,7 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-Python library for the Verified Email Protocol.
+Python library for the BrowserID identity protocol.
 
 """
 
