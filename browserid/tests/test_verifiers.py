@@ -201,6 +201,20 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         self.assertRaises(AudienceMismatchError,
                           self.verifier.verify, assertion, "http://moz.com")
 
+    def test_verification_with_extra_idp_claims(self):
+        audience = "http://example.com"
+        assertion = self._make_assertion("test@example.com", audience,
+                                         idp_claims={"hello": "world"})
+        info = self.verifier.verify(assertion)
+        self.assertEquals(info["idpClaims"], {"hello": "world"})
+
+    def test_verification_with_extra_user_claims(self):
+        audience = "http://example.com"
+        assertion = self._make_assertion("test@example.com", audience,
+                                         user_claims={"hello": "world"})
+        info = self.verifier.verify(assertion)
+        self.assertEquals(info["userClaims"], {"hello": "world"})
+
     def test_verification_of_untrusted_issuer(self):
         audience = "http://example.com"
         issuer = "moz.com"

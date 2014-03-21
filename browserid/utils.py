@@ -19,6 +19,23 @@ if sys.version_info > (3,):
     unicode = str
 
 
+# These are the JWT claims that have special meaning either to the
+# JWT spec or to BrowserID.  Any claims not in this list will be
+# collected into a special "extra claims" list.
+RESERVED_JWT_CLAIMS = set([
+  'iss',
+  'sub',
+  'aud',
+  'exp',
+  'nbf',
+  'iat',
+  'jti',
+  'public-key',
+  'pubkey',
+  'principal'
+])
+
+
 def decode_bytes(value):
     """Decode BrowserID's base64 encoding format.
 
@@ -104,8 +121,10 @@ def get_assertion_info(assertion):
 
        * email:        the email address of the asserted identity
        * issuer:       the authority certifying the claimed identity
+       * idpClaims:    extra claims included by the issuing authority
        * audience:     the audience to whom it is asserted
        * expires:      the timestamp at which the assertion expires, in ms
+       * userClaims:   extra claims included by the identity claimant
 
     For backwards-compatiblity reasons, the following key is also provided:
 
@@ -129,13 +148,38 @@ def get_assertion_info(assertion):
             info["email"] = payload["sub"]
             info["principal"] = {"email": payload["sub"]}
         info["issuer"] = payload["iss"]
+        info["idpClaims"] = extract_extra_claims(payload)
         # Get the audience and expiry out of the assertion token.
         payload = decode_json_bytes(assertion.split(".")[1])
         info["audience"] = payload["aud"]
         info["expires"] = normalize_timestamp(payload["exp"])
+        info["userClaims"] = extract_extra_claims(payload)
     except (TypeError, KeyError) as e:
         raise ValueError(e)
     return info
+
+
+def extract_extra_claims(payload):
+    """Extract any non-standard JWT claims for a JWT payload.
+
+    This function searches the given payload dict for any claims that do
+    not have a special meaning in the JWT or BrowserID specs, and returns
+    a dict containing any such claims.
+
+    As a backwards-compatibility measure, if there is a claim named "principal"
+    and its value is a dict, then any keys therein apart from "email" will
+    be added to the return value.
+    """
+    extra_claims = {}
+    for key, value in payload.iteritems():
+        if key not in RESERVED_JWT_CLAIMS:
+            extra_claims[key] = value
+    principal = payload.get("principal", None)
+    if isinstance(principal, dict):
+        for key, value in principal.iteritems():
+            if key != "email" and key not in extra_claims:
+                extra_claims[key] = value
+    return extra_claims
 
 
 def bytes_to_long(value):

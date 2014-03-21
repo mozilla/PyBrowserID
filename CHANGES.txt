@@ -12,6 +12,7 @@
       * The use of a "principal" dict with "email" item is deprecated;
         new code should look for a top-level "sub" claim.
       * get_assertion_info() now returns issuer and expiry information.
+      * Support for extra claims from user and idp.
 
 0.9.1 - 2012-11-26
 ==================

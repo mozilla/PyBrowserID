@@ -163,6 +163,7 @@ def get_keypair(hostname, legacy_format=False):
 def make_assertion(email, audience, issuer=None, exp=None,
                     assertion_sig=None, certificate_sig=None,
                     email_keypair=None, issuer_keypair=None,
+                    user_claims=None, idp_claims=None,
                     legacy_format=False):
     """Generate a new dummy assertion for the given email address.
 
@@ -195,6 +196,8 @@ def make_assertion(email, audience, issuer=None, exp=None,
         "exp": exp,
         "aud": audience,
     }
+    if user_claims is not None:
+        assertion.update(user_claims)
     assertion = jwt.generate(assertion, email_priv)
     if assertion_sig is not None:
         assertion = ".".join(assertion.split(".")[:-1] +
@@ -216,6 +219,8 @@ def make_assertion(email, audience, issuer=None, exp=None,
             "sub": email,
             "pubkey": email_pub,
         }
+    if idp_claims is not None:
+        certificate.update(idp_claims)
     certificate = jwt.generate(certificate, iss_priv)
     if certificate_sig is not None:
         certificate = ".".join(certificate.split(".")[:-1] +

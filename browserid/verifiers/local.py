@@ -8,6 +8,7 @@ from browserid import jwt
 from browserid.verifiers import Verifier
 from browserid.supportdoc import SupportDocumentManager
 from browserid.utils import (normalize_timestamp,
+                             extract_extra_claims,
                              unbundle_certs_and_assertion)
 from browserid.errors import (InvalidSignatureError,
                               ExpiredSignatureError,
@@ -103,6 +104,8 @@ class LocalVerifier(Verifier):
           "email": email,
           "issuer": root_issuer,
           "expires": exp,
+          "idpClaims": extract_extra_claims(certificates[-1].payload),
+          "userClaims": extract_extra_claims(assertion.payload)
         }
 
     def is_trusted_issuer(self, hostname, issuer):
