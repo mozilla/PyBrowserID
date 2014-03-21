@@ -30,8 +30,10 @@ class TestUtils(unittest.TestCase):
 
     def test_get_assertion_info(self):
         data = get_assertion_info(EXPIRED_ASSERTION)
+        self.assertEquals(data["email"], "rfkelly@mozilla.com")
         self.assertEquals(data["principal"]["email"], "rfkelly@mozilla.com")
         self.assertEquals(data["audience"], "http://myfavoritebeer.org")
+        self.assertEquals(data["issuer"], "login.mozilla.org")
         self.assertRaises(ValueError, get_assertion_info, "JUNK")
         self.assertRaises(ValueError, get_assertion_info, "X")
         self.assertRaises(ValueError, get_assertion_info, "\x00\x01\x02")

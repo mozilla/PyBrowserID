@@ -17,7 +17,7 @@ from browserid.supportdoc import FIFOCache, SupportDocumentManager
 from browserid.verifiers.workerpool import WorkerPoolVerifier
 from browserid.tests.support import EXPIRED_ASSERTION
 from browserid.utils import (encode_json_bytes,
-                             decode_json_bytes,
+                             normalize_timestamp,
                              bundle_certs_and_assertion,
                              unbundle_certs_and_assertion)
 from browserid.errors import (TrustError,
@@ -190,9 +190,12 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
     def tearDown(self):
         self.patched.__exit__(None, None, None)
 
+    def _make_assertion(self, *args, **kwds):
+        return make_assertion(*args, **kwds)
+
     def test_verification_of_valid_dummy_assertion(self):
         audience = "http://example.com"
-        assertion = make_assertion("test@example.com", audience)
+        assertion = self._make_assertion("test@example.com", audience)
         self.assertTrue(self.verifier.verify(assertion))
         self.assertTrue(self.verifier.verify(assertion, audience))
         self.assertRaises(AudienceMismatchError,
@@ -202,33 +205,35 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         audience = "http://example.com"
         issuer = "moz.com"
         # Assertions for @moz.com addresses can come from moz.com
-        assertion = make_assertion("test@moz.com", audience, issuer=issuer)
+        assertion = self._make_assertion("test@moz.com", audience,
+                                         issuer=issuer)
         self.assertTrue(self.verifier.verify(assertion, audience))
         # But assertions for other addresses cannot (unless they delegated).
-        assertion = make_assertion("test@example.com", audience,
-                                   issuer=issuer)
+        assertion = self._make_assertion("test@example.com", audience,
+                                         issuer=issuer)
         self.assertRaises(InvalidSignatureError, self.verifier.verify,
                           assertion, audience)
 
     def test_verification_of_expired_dummy_assertion(self):
         audience = "http://example.com"
-        now = (time.time() * 1000)
-        assertion = make_assertion("test@example.com", audience, exp=now - 1)
+        now = normalize_timestamp(None)
+        assertion = self._make_assertion("test@example.com", audience,
+                                         exp=now - 1)
         self.assertTrue(self.verifier.verify(assertion, now=now - 2))
         self.assertRaises(ExpiredSignatureError, self.verifier.verify,
                           assertion)
 
     def test_verification_of_dummy_assertion_with_bad_assertion_sig(self):
         audience = "http://example.com"
-        assertion = make_assertion("test@example.com", audience,
-                                   assertion_sig="BADTOTHEBONE")
+        assertion = self._make_assertion("test@example.com", audience,
+                                         assertion_sig="BADTOTHEBONE")
         self.assertRaises(InvalidSignatureError, self.verifier.verify,
                           assertion)
 
     def test_verification_of_dummy_assertion_with_bad_certificate_sig(self):
         audience = "http://example.com"
-        assertion = make_assertion("test@example.com", audience,
-                                   certificate_sig="CORRUPTUS")
+        assertion = self._make_assertion("test@example.com", audience,
+                                         certificate_sig="CORRUPTUS")
         self.assertRaises(InvalidSignatureError, self.verifier.verify,
                           assertion)
 
@@ -237,7 +242,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         verifier = LocalVerifier(["*"], supportdocs=supportdocs,
                 warning=False)
         # Prime the cache by verifying an assertion.
-        assertion = make_assertion("test@example.com", "")
+        assertion = self._make_assertion("test@example.com", "")
         self.assertTrue(verifier.verify(assertion))
         # Make it error out if re-fetching the keys
 
@@ -254,13 +259,13 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         verifier = LocalVerifier(["*"], supportdocs=supportdocs,
                 warning=False)
         # Prime the cache by verifying some assertions.
-        assertion1 = make_assertion("test@1.com", "", "1.com")
+        assertion1 = self._make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
-        assertion2 = make_assertion("test@2.com", "", "2.com")
+        assertion2 = self._make_assertion("test@2.com", "", "2.com")
         self.assertTrue(verifier.verify(assertion2))
         self.assertEquals(len(supportdocs.cache), 2)
         # Hitting a third host should evict the first public key.
-        assertion3 = make_assertion("test@3.com", "", "3.com")
+        assertion3 = self._make_assertion("test@3.com", "", "3.com")
         self.assertTrue(verifier.verify(assertion3))
         self.assertEquals(len(supportdocs.cache), 2)
         # Make it error out if re-fetching any keys
@@ -276,13 +281,13 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         verifier = LocalVerifier(["*"], supportdocs=supportdocs,
                 warning=False)
         # Prime the cache by verifying an assertion.
-        assertion1 = make_assertion("test@1.com", "", "1.com")
+        assertion1 = self._make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
         self.assertEquals(len(supportdocs.cache), 1)
         # Let that cached key expire
         time.sleep(0.1)
         # Now grab a different key; caching it should purge the expired key.
-        assertion2 = make_assertion("test@2.com", "", "2.com")
+        assertion2 = self._make_assertion("test@2.com", "", "2.com")
         self.assertTrue(verifier.verify(assertion2))
         self.assertEquals(len(supportdocs.cache), 1)
         # Check that only the second entry is in cache.
@@ -296,14 +301,14 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         verifier = LocalVerifier(["*.moz.com", "www.test.com"], warning=False)
         # Domains like *.moz.com should be valid audiences.
         # They will work with both the implicit patterns and explicit audience.
-        assertion = make_assertion("test@example.com", "www.moz.com")
+        assertion = self._make_assertion("test@example.com", "www.moz.com")
         self.assertTrue(verifier.verify(assertion))
         self.assertTrue(verifier.verify(assertion, "www.moz.com"))
         self.assertRaises(AudienceMismatchError,
                           verifier.verify, assertion, "www.test.com")
         # The specific domain www.test.com should be a valid audience.
         # It will work with both the implicit patterns and explicit audience.
-        assertion = make_assertion("test@example.com", "www.test.com")
+        assertion = self._make_assertion("test@example.com", "www.test.com")
         self.assertTrue(verifier.verify(assertion))
         self.assertTrue(verifier.verify(assertion, "www.test.com"))
         self.assertTrue(verifier.verify(assertion, "*.test.com"))
@@ -311,10 +316,17 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
                           verifier.verify, assertion, "www.moz.com")
         # Domains not matching any patterns should not be valid audiences.
         # They will fail unless given as an explicit argument.
-        assertion = make_assertion("test@example.com", "www.evil.com")
+        assertion = self._make_assertion("test@example.com", "www.evil.com")
         self.assertRaises(AudienceMismatchError, verifier.verify, assertion)
         self.assertTrue(verifier.verify(assertion, "www.evil.com"))
         self.assertTrue(verifier.verify(assertion, "*.evil.com"))
+
+
+class TestDummyVerifierWithLegacyFormat(TestDummyVerifier):
+
+    def _make_assertion(self, *args, **kwds):
+        kwds.setdefault("legacy_format", True)
+        return make_assertion(*args, **kwds)
 
 
 class TestWorkerPoolVerifier(TestDummyVerifier):

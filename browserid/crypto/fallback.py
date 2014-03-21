@@ -16,6 +16,8 @@ automatically if you have that package installed.
 import os
 from binascii import hexlify, unhexlify
 
+from browserid.utils import bytes_to_long, decode_bytes
+
 
 class Key(object):
     """Generic base class for Key objects."""
@@ -68,12 +70,25 @@ class RSKey(Key):
 
     def __init__(self, data):
         _check_keys(data, ("e", "n"))
-        self.e = int(data["e"])
-        self.n = int(data["n"])
+        if "algorithm" in data:
+            parse_int = self._parse_int_legacy
+        else:
+            parse_int = self._parse_int
+        self.e = parse_int(data["e"])
+        self.n = parse_int(data["n"])
         try:
-            self.d = int(data["d"])
+            self.d = parse_int(data["d"])
         except KeyError:
             self.d = None
+
+    # Legacy BrowserID protocol used base-10 value as a string.
+    # Current JWT uses base64-encoded big-endian bytes.
+
+    def _parse_int(self, value):
+        return bytes_to_long(decode_bytes(value))
+
+    def _parse_int_legacy(self, value):
+        return long(value)
 
     def verify(self, signed_data, signature):
         n, e = self.n, self.e
@@ -112,14 +127,27 @@ class DSKey(Key):
 
     def __init__(self, data):
         _check_keys(data, ("p", "q", "g", "y"))
-        self.p = int(data["p"], 16)
-        self.q = int(data["q"], 16)
-        self.g = int(data["g"], 16)
-        self.y = int(data["y"], 16)
+        if "algorithm" in data:
+            parse_int = self._parse_int_legacy
+        else:
+            parse_int = self._parse_int
+        self.p = parse_int(data["p"])
+        self.q = parse_int(data["q"])
+        self.g = parse_int(data["g"])
+        self.y = parse_int(data["y"])
         if "x" in data:
-            self.x = int(data["x"], 16)
+            self.x = parse_int(data["x"])
         else:
             self.x = None
+
+    # Legacy BrowserID protocol used hex value as a string.
+    # Current JWT uses base64-encoded big-endian bytes.
+
+    def _parse_int(self, value):
+        return bytes_to_long(decode_bytes(value))
+
+    def _parse_int_legacy(self, value):
+        return long(value, 16)
 
     def verify(self, signed_data, signature):
         p, q, g, y = self.p, self.q, self.g, self.y

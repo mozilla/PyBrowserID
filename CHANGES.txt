@@ -3,6 +3,15 @@
 
   * Removed "old-style" assertion format, it hasn't been used anywhere
     in the wild for years.
+  * The utility functions to_int() and to_hex() have been removed.
+  * The utility functions bytes_to_long() and long_to_bytes() have been
+    added, converting integers to/from raw big-endian bytestrings.
+  * Updates for the latest JWT and BrowserID protocol versions:
+      * Some renaming of JWT fields, as described in detail at
+        http://lloyd.io/evolving-browserid-data-formats/
+      * The use of a "principal" dict with "email" item is deprecated;
+        new code should look for a top-level "sub" claim.
+      * get_assertion_info() now returns issuer and expiry information.
 
 0.9.1 - 2012-11-26
 ==================

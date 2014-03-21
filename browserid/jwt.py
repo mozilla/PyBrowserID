@@ -53,7 +53,13 @@ class JWT(object):
 
     def check_signature(self, key_data):
         """Check that the JWT was signed with the given key."""
-        if not self.algorithm.startswith(key_data["algorithm"]):
+        # Legacy BrowserID uses "algorithm" field, while latest
+        # JWT spec uses "kty", and they have different formats.
+        try:
+            kty = key_data["kty"][:2]
+        except KeyError:
+            kty = key_data["algorithm"]
+        if not self.algorithm.startswith(kty):
             return False
         key = load_key(self.algorithm, key_data)
         return key.verify(self.signed_data.encode("ascii"), self.signature)

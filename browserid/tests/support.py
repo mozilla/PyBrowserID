@@ -7,7 +7,7 @@ import hashlib
 from contextlib import contextmanager
 
 from browserid.utils import (encode_bytes, bundle_certs_and_assertion,
-                             to_int, to_hex)
+                             normalize_timestamp, long_to_bytes)
 
 from browserid import supportdoc
 from browserid import jwt
@@ -61,6 +61,14 @@ EXPIRED_ASSERTION = """
 """.replace(" ", "").replace("\n", "").strip()
 
 
+def to_int(intstr, base=10):
+    return long(str(intstr).replace(" ", "").replace("\n", ""), base)
+
+
+def to_hex(intval):
+    return hex(intval)[2:].rstrip("L")
+
+
 # These are values used to generate dummy DSA keys.
 # I took them directly from the javacript jwcrypto source code, which claims:
 #    """
@@ -106,7 +114,7 @@ def fetch_support_document(hostname, verify=None):
     return {"public-key": get_keypair(hostname)[0]}
 
 
-def get_keypair(hostname):
+def get_keypair(hostname, legacy_format=False):
     """Generate a dummy keypair for the given hostname.
 
     This method generates a dummy DSA keypair for the given hostname.
@@ -128,14 +136,25 @@ def get_keypair(hostname):
     assert x != 0, "SHA1(hostname) is zero - what are the odds?!"
     # Calculate public key y as usual.
     y = pow(g, x, p)
-    data = {
-      "algorithm": "DS",
-      "p": to_hex(p),
-      "q": to_hex(q),
-      "g": to_hex(g),
-      "y": to_hex(y),
-      "x": to_hex(x),
-    }
+    # Format the data appropriately for latest or legacy assertiond.
+    if legacy_format:
+        data = {
+          "algorithm": "DS",
+          "p": to_hex(p),
+          "q": to_hex(q),
+          "g": to_hex(g),
+          "y": to_hex(y),
+          "x": to_hex(x),
+        }
+    else:
+        data = {
+          "kty": "DSA",
+          "p": encode_bytes(long_to_bytes(p)),
+          "q": encode_bytes(long_to_bytes(q)),
+          "g": encode_bytes(long_to_bytes(g)),
+          "y": encode_bytes(long_to_bytes(y)),
+          "x": encode_bytes(long_to_bytes(x)),
+        }
     privkey = jwt.DS128Key(data)
     del data["x"]
     return data, privkey
@@ -143,7 +162,8 @@ def get_keypair(hostname):
 
 def make_assertion(email, audience, issuer=None, exp=None,
                     assertion_sig=None, certificate_sig=None,
-                    email_keypair=None, issuer_keypair=None):
+                    email_keypair=None, issuer_keypair=None,
+                    legacy_format=False):
     """Generate a new dummy assertion for the given email address.
 
     This method lets you generate BrowserID assertions using dummy private
@@ -156,14 +176,18 @@ def make_assertion(email, audience, issuer=None, exp=None,
     if issuer is None:
         issuer = "login.persona.org"
     if exp is None:
-        exp = int((time.time() + 60) * 1000)
+        exp = time.time() + 60
+    # Legacy format uses integer millisecond timestamps.
+    exp = normalize_timestamp(exp)
+    if legacy_format:
+        exp = exp * 1000
     # Get private key for the email address itself.
     if email_keypair is None:
-        email_keypair = get_keypair(email)
+        email_keypair = get_keypair(email, legacy_format=legacy_format)
     email_pub, email_priv = email_keypair
     # Get private key for the hostname so we can sign it.
     if issuer_keypair is None:
-        issuer_keypair = get_keypair(issuer)
+        issuer_keypair = get_keypair(issuer, legacy_format=legacy_format)
     iss_pub, iss_priv = issuer_keypair
 
     # Generate the assertion, signed with email's public key.
@@ -176,13 +200,22 @@ def make_assertion(email, audience, issuer=None, exp=None,
         assertion = ".".join(assertion.split(".")[:-1] +
                                 [encode_bytes(assertion_sig)])
     # Generate the certificate signing the email's public key
-    # with the issuer's public key.
-    certificate = {
-        "iss": issuer,
-        "exp": exp,
-        "principal": {"email": email},
-        "public-key": email_pub,
-    }
+    # with the issuer's public key.  The details differ between
+    # current and legacy formats.
+    if legacy_format:
+        certificate = {
+            "iss": issuer,
+            "exp": exp,
+            "principal": {"email": email},
+            "public-key": email_pub,
+        }
+    else:
+        certificate = {
+            "iss": issuer,
+            "exp": exp,
+            "sub": email,
+            "pubkey": email_pub,
+        }
     certificate = jwt.generate(certificate, iss_priv)
     if certificate_sig is not None:
         certificate = ".".join(certificate.split(".")[:-1] +

@@ -14,9 +14,11 @@ having to install M2Crypto.
 """
 
 import struct
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 
 from M2Crypto import BIO
+
+from browserid.utils import bytes_to_long, long_to_bytes, decode_bytes
 
 from browserid.crypto._m2_monkeypatch import m2
 from browserid.crypto._m2_monkeypatch import DSA as _DSA
@@ -73,14 +75,27 @@ class RSKey(Key):
 
     def __init__(self, data):
         _check_keys(data, ('e', 'n'))
-        e = int2mpint(int(data["e"]))
-        n = int2mpint(int(data["n"]))
+        if "algorithm" in data:
+            parse_int = self._parse_int_legacy
+        else:
+            parse_int = self._parse_int
+        e = int2mpint(parse_int(data["e"]))
+        n = int2mpint(parse_int(data["n"]))
         try:
-            d = int2mpint(int(data["d"]))
+            d = int2mpint(parse_int(data["d"]))
         except KeyError:
             self.keyobj = _RSA.new_pub_key((e, n))
         else:
             self.keyobj = _RSA.new_key((e, n, d))
+
+    # Legacy BrowserID protocol used base-10 value as a string.
+    # Current JWT uses base64-encoded big-endian bytes.
+
+    def _parse_int(self, value):
+        return bytes_to_long(decode_bytes(value))
+
+    def _parse_int_legacy(self, value):
+        return long(value, 10)
 
     def verify(self, signed_data, signature):
         digest = self.HASHMOD(signed_data).digest()
@@ -107,19 +122,32 @@ class DSKey(Key):
 
     def __init__(self, data):
         _check_keys(data, ('p', 'q', 'g', 'y'))
-        self.p = p = long(data["p"], 16)
-        self.q = q = long(data["q"], 16)
-        self.g = g = long(data["g"], 16)
-        self.y = y = long(data["y"], 16)
+        if "algorithm" in data:
+            parse_int = self._parse_int_legacy
+        else:
+            parse_int = self._parse_int
+        self.p = p = parse_int(data["p"])
+        self.q = q = parse_int(data["q"])
+        self.g = g = parse_int(data["g"])
+        self.y = y = parse_int(data["y"])
         if "x" not in data:
             self.x = None
             self.keyobj = _DSA.load_pub_key_params(int2mpint(p), int2mpint(q),
                                                    int2mpint(g), int2mpint(y))
         else:
-            self.x = x = long(data["x"], 16)
+            self.x = x = parse_int(data["x"])
             self.keyobj = _DSA.load_key_params(int2mpint(p), int2mpint(q),
                                                int2mpint(g), int2mpint(y),
                                                int2mpint(x))
+
+    # Legacy BrowserID protocol used hex value as a string.
+    # Current JWT uses base64-encoded big-endian bytes.
+
+    def _parse_int(self, value):
+        return bytes_to_long(decode_bytes(value))
+
+    def _parse_int_legacy(self, value):
+        return long(value, 16)
 
     @classmethod
     def from_pem_data(cls, data=None, filename=None):
@@ -170,13 +198,7 @@ class DSKey(Key):
 def int2mpint(x):
     """Convert a Python long integer to a string in OpenSSL's MPINT format."""
     # MPINT is big-endian bytes with a size prefix.
-    # It's faster to go via hex encoding in C code than it is to try
-    # encoding directly into binary with a python-level loop.
-    # (and hex-slice-strip seems consistently faster than using "%x" format)
-    hexbytes = hex(x)[2:].rstrip("L").encode("ascii")
-    if len(hexbytes) % 2:
-        hexbytes = b"0" + hexbytes
-    bytes = unhexlify(hexbytes)
+    bytes = long_to_bytes(x)
     # Add an extra significant byte that's just zero.  I think this is only
     # necessary if the number has its MSB set, to prevent it being mistaken
     # for a sign bit.  I do it uniformly since it's valid and simpler.
@@ -185,8 +207,8 @@ def int2mpint(x):
 
 def mpint2int(data):
     """Convert a string in OpenSSL's MPINT format to a Python long integer."""
-    hexbytes = hexlify(data[4:])
-    return long(hexbytes, 16)
+    # The first 4 bytes are the size prefix.
+    return bytes_to_long(data[4:])
 
 
 def _check_keys(data, keys):

@@ -2,8 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from browserid.tests.support import unittest
-from browserid.utils import to_int
+from browserid.tests.support import unittest, to_int
 
 try:
     from browserid.crypto.m2 import int2mpint

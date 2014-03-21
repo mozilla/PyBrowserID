@@ -9,7 +9,9 @@ Utility functions for PyBrowserID.
 
 import sys
 import json
+import time
 import base64
+from binascii import hexlify, unhexlify
 
 
 if sys.version_info > (3,):
@@ -100,8 +102,14 @@ def get_assertion_info(assertion):
     This function decodes and parses the given BrowserID assertion, returning
     a dict with the following items:
 
+       * email:        the email address of the asserted identity
+       * issuer:       the authority certifying the claimed identity
+       * audience:     the audience to whom it is asserted
+       * expires:      the timestamp at which the assertion expires, in ms
+
+    For backwards-compatiblity reasons, the following key is also provided:
+
        * principal:  the asserted identity, eg: {"email": "test@example.com"}
-       * audience:   the audience to whom it is asserted
 
     This does *not* verify the assertion at all, it is merely a way to see
     the information that is being asserted.  If the assertion is malformed
@@ -110,32 +118,40 @@ def get_assertion_info(assertion):
     info = {}
     try:
         certificates, assertion = unbundle_certs_and_assertion(assertion)
-        # Get the asserted principal out of the certificate chain.
+        # Get details of the asserted identity out of the certificate chain.
+        # Older certificates include this as "principal" but newer ones
+        # use the standard JWT "sub" field.
         payload = decode_json_bytes(certificates[-1].split(".")[1])
-        info["principal"] = payload["principal"]
-        # Get the audience out of the assertion token.
+        if "principal" in payload:
+            info["email"] = payload["principal"]["email"]
+            info["principal"] = payload["principal"]
+        else:
+            info["email"] = payload["sub"]
+            info["principal"] = {"email": payload["sub"]}
+        info["issuer"] = payload["iss"]
+        # Get the audience and expiry out of the assertion token.
         payload = decode_json_bytes(assertion.split(".")[1])
         info["audience"] = payload["aud"]
+        info["expires"] = normalize_timestamp(payload["exp"])
     except (TypeError, KeyError) as e:
         raise ValueError(e)
     return info
 
 
-def to_int(value, base=10):
-    """Convert the given value to a python integer.
-
-    The given value can be an existing int or long object, or a string in
-    the given base.  The result will always be a long on python2 and an
-    int on python3 (which has not concept of a separate "long" type).
-    """
-    if not isinstance(value, str):
-        return long(value)
-    return long(value.replace(" ", "").replace("\n", "").strip(), base)
+def bytes_to_long(value):
+    """Convert raw big-endian bytes into a python long object."""
+    return long(hexlify(value), 16)
 
 
-def to_hex(value):
-    """Convert the given value to a long encoded into a hex string."""
-    return hex(to_int(value))[2:].rstrip("L")
+def long_to_bytes(value):
+    """Convert the given long value to raw big-endian bytes."""
+    # It's faster to go via hex encoding in C code than it is to try
+    # encoding directly into binary with a python-level loop.
+    # And hex-slice-strip seems consistently faster than using "%x" format.
+    hexbytes = hex(value)[2:].rstrip("L").encode("ascii")
+    if len(hexbytes) % 2:
+        hexbytes = b"0" + hexbytes
+    return unhexlify(hexbytes)
 
 
 def u(value):
@@ -149,3 +165,21 @@ def u(value):
     if sys.version_info < (3,):
         value = value.decode("unicode-escape")
     return value
+
+
+def normalize_timestamp(ts):
+    """Normalize the given timestamp into BrowserID standard representation.
+
+    Previous versions of BrowserID, and hence of this library, uses integer
+    millisecond timestamps.  The latest version uses integer seconds, causing
+    much potential for confusion.  This helper function tries to provide some
+    backwards-compatibility by detecting millisecond timestamps and converting
+    them to seconds.
+    """
+    if ts is None:
+        ts = time.time()
+    ts = int(ts)
+    if ts >= 1000000000000:
+        # Ludicrously large, it must be a millisecond timestamp.
+        ts = ts / 1000
+    return ts
