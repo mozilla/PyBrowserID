@@ -17,10 +17,10 @@ from browserid.utils import decode_json_bytes, encode_json_bytes
 
 def parse(jwt):
     """Parse a JWT from a string."""
-    algorithm, payload, signature = jwt.split(".")
-    signed_data = algorithm + "." + payload
+    header, payload, signature = jwt.split(".")
+    signed_data = header + "." + payload
     try:
-        algorithm = decode_json_bytes(algorithm)["alg"]
+        algorithm = decode_json_bytes(header)["alg"]
     except KeyError:
         raise ValueError("badly formed JWT")
     payload = decode_json_bytes(payload)
@@ -31,11 +31,11 @@ def parse(jwt):
 def generate(payload, key):
     """Generate and sign a JWT for a dict payload."""
     alg = key.__class__.__name__[:-3]
-    algorithm = encode_json_bytes({"alg": alg})
+    header = encode_json_bytes({"alg": alg})
     payload = encode_json_bytes(payload)
-    signed_data = ".".join((algorithm, payload)).encode("ascii")
+    signed_data = ".".join((header, payload)).encode("ascii")
     signature = encode_bytes(key.sign(signed_data))
-    return ".".join((algorithm, payload, signature))
+    return ".".join((header, payload, signature))
 
 
 class JWT(object):
