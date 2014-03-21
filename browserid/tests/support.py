@@ -160,7 +160,7 @@ def get_keypair(hostname, legacy_format=False):
     return data, privkey
 
 
-def make_assertion(email, audience, issuer=None, exp=None,
+def make_assertion(email, audience, issuer=None, exp=None, iat=None,
                     assertion_sig=None, certificate_sig=None,
                     email_keypair=None, issuer_keypair=None,
                     user_claims=None, idp_claims=None,
@@ -178,10 +178,14 @@ def make_assertion(email, audience, issuer=None, exp=None,
         issuer = "login.persona.org"
     if exp is None:
         exp = time.time() + 60
+    if iat is None:
+        iat = time.time() - 60
     # Legacy format uses integer millisecond timestamps.
     exp = normalize_timestamp(exp)
+    iat = normalize_timestamp(iat)
     if legacy_format:
         exp = exp * 1000
+        iat = iat * 1000
     # Get private key for the email address itself.
     if email_keypair is None:
         email_keypair = get_keypair(email, legacy_format=legacy_format)
@@ -194,6 +198,7 @@ def make_assertion(email, audience, issuer=None, exp=None,
     # Generate the assertion, signed with email's public key.
     assertion = {
         "exp": exp,
+        "iat": iat,
         "aud": audience,
     }
     if user_claims is not None:
@@ -209,6 +214,7 @@ def make_assertion(email, audience, issuer=None, exp=None,
         certificate = {
             "iss": issuer,
             "exp": exp,
+            "iat": iat,
             "principal": {"email": email},
             "public-key": email_pub,
         }
@@ -216,6 +222,7 @@ def make_assertion(email, audience, issuer=None, exp=None,
         certificate = {
             "iss": issuer,
             "exp": exp,
+            "iat": iat,
             "sub": email,
             "pubkey": email_pub,
         }

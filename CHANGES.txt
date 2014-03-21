@@ -13,6 +13,7 @@
         new code should look for a top-level "sub" claim.
       * get_assertion_info() now returns issuer and expiry information.
       * Support for extra claims from user and idp.
+      * Support for optional "iat" claim in certifications and assertions.
 
 0.9.1 - 2012-11-26
 ==================

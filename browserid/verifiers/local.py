@@ -72,6 +72,10 @@ class LocalVerifier(Verifier):
             exp = normalize_timestamp(assertion.payload["exp"])
             if exp < now:
                 raise ExpiredSignatureError(assertion.payload["exp"])
+            if "iat" in assertion.payload:
+                iat = normalize_timestamp(assertion.payload["iat"])
+                if iat > now:
+                    raise ExpiredSignatureError(assertion.payload["iat"])
 
             # Parse out the list of certificates.
             certificates = [self.parse_jwt(c) for c in certificates]
@@ -149,6 +153,11 @@ class LocalVerifier(Verifier):
             exp = normalize_timestamp(cert.payload["exp"])
             if exp < now:
                 raise ExpiredSignatureError("expired certificate in chain")
+            if "iat" in cert.payload:
+                iat = normalize_timestamp(cert.payload["iat"])
+                if iat > now:
+                    msg = "future-issued certificate in chain"
+                    raise ExpiredSignatureError(msg)
             if not cert.check_signature(current_key):
                 raise InvalidSignatureError("bad signature in chain")
             current_key = self._extract_public_key(cert)

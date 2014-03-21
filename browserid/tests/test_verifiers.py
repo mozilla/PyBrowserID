@@ -237,6 +237,15 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
         self.assertRaises(ExpiredSignatureError, self.verifier.verify,
                           assertion)
 
+    def test_verification_of_future_issued_assertion(self):
+        audience = "http://example.com"
+        now = normalize_timestamp(None)
+        assertion = self._make_assertion("test@example.com", audience,
+                                         iat=now + 1)
+        self.assertTrue(self.verifier.verify(assertion, now=now + 2))
+        self.assertRaises(ExpiredSignatureError, self.verifier.verify,
+                          assertion, now=now)
+
     def test_verification_of_dummy_assertion_with_bad_assertion_sig(self):
         audience = "http://example.com"
         assertion = self._make_assertion("test@example.com", audience,
