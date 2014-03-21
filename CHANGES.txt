@@ -1,6 +1,9 @@
 0.10.0 - XXXX-XX-XX
 ===================
 
+  * Removed "old-style" assertion format, it hasn't been used anywhere
+    in the wild for years.
+
 0.9.1 - 2012-11-26
 ==================
 

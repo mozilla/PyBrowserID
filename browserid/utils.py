@@ -73,21 +73,13 @@ def encode_json_bytes(obj):
     return encode_bytes(json.dumps(obj).encode("utf8"))
 
 
-def bundle_certs_and_assertion(certificates, assertion, new_style=True):
+def bundle_certs_and_assertion(certificates, assertion):
     """Bundle certificates and assertion into a single string.
 
     This function produces a BrowserID "bundled assertion" that combines the
-    certificate chain and final assertion into a single string.  By default
-    it uses the "new-style" tilde-separated format; pass new_style=False to
-    use the older b64-encoded-JSON format.
+    certificate chain and final assertion into a single string.
     """
-    if new_style:
-        return "~".join(certificates) + "~" + assertion
-    else:
-        return encode_json_bytes({
-          "certificates": certificates,
-          "assertion": assertion,
-        })
+    return "~".join(certificates) + "~" + assertion
 
 
 def unbundle_certs_and_assertion(bundle):
@@ -97,13 +89,8 @@ def unbundle_certs_and_assertion(bundle):
     chain of certificates and final assertion.  The returned value is a tuple
     (certificates, assertion).
     """
-    if "~" in bundle:
-        certificates, assertion = bundle.rsplit("~", 1)
-        certificates = certificates.split("~")
-    else:
-        data = decode_json_bytes(bundle)
-        certificates = data["certificates"]
-        assertion = data["assertion"]
+    certificates, assertion = bundle.rsplit("~", 1)
+    certificates = certificates.split("~")
     return certificates, assertion
 
 

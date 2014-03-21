@@ -19,6 +19,48 @@ except ImportError:
     import unittest  # NOQA
 
 
+# This is an old assertion I generated on myfavoritebeer.org.
+# It's expired and signed with an old private key.  It has
+# the following info:
+#
+#  email:  rfkelly@mozilla.com
+#  audience:  http://myfavoritebeer.org
+#
+EXPIRED_ASSERTION = """
+    eyJhbGciOiJSUzI1NiJ9.eyJwdWJsaWMta2V5Ijp7ImFsZ29yaXRobSI6IkR
+    TIiwieSI6IjZlYjFiMjIxNzg3YjZlYWFiNTBlZTNmNjg2M2M5YmIzNDFmOTA
+    2MDI5Y2ZiNzc4NGQwYzA1YzZkNWJjMDUwYjdmMjY4MGFhYjUyZWRiYmM2N2Z
+    iNDZmYWIwYWNjYTI0MGQ3ZjdmNmQ3MmYxZjkzZTZhZWYxMjhmMmYxMTUxMzk
+    yZDdlYTFhYjIyZDE2OWY3YmFiYzNkYTcyZmMwNjgyYTlmYjQ4M2M2NjBjMjQ
+    2ZjEzMzRjMDFlMzE3MmUxY2RmZDJlNjMwY2I0NGJmMzdmNDAyZDhhYjEyNWJ
+    iNDA3MDcyYzNjZjk5ZjhmNTg3NzdlOTA3MWNhNzBjNzcxNjk0YTkiLCJwIjo
+    iZmY2MDA0ODNkYjZhYmZjNWI0NWVhYjc4NTk0YjM1MzNkNTUwZDlmMWJmMmE
+    5OTJhN2E4ZGFhNmRjMzRmODA0NWFkNGU2ZTBjNDI5ZDMzNGVlZWFhZWZkN2U
+    yM2Q0ODEwYmUwMGU0Y2MxNDkyY2JhMzI1YmE4MWZmMmQ1YTViMzA1YThkMTd
+    lYjNiZjRhMDZhMzQ5ZDM5MmUwMGQzMjk3NDRhNTE3OTM4MDM0NGU4MmExOGM
+    0NzkzMzQzOGY4OTFlMjJhZWVmODEyZDY5YzhmNzVlMzI2Y2I3MGVhMDAwYzN
+    mNzc2ZGZkYmQ2MDQ2MzhjMmVmNzE3ZmMyNmQwMmUxNyIsInEiOiJlMjFlMDR
+    mOTExZDFlZDc5OTEwMDhlY2FhYjNiZjc3NTk4NDMwOWMzIiwiZyI6ImM1MmE
+    0YTBmZjNiN2U2MWZkZjE4NjdjZTg0MTM4MzY5YTYxNTRmNGFmYTkyOTY2ZTN
+    jODI3ZTI1Y2ZhNmNmNTA4YjkwZTVkZTQxOWUxMzM3ZTA3YTJlOWUyYTNjZDV
+    kZWE3MDRkMTc1ZjhlYmY2YWYzOTdkNjllMTEwYjk2YWZiMTdjN2EwMzI1OTM
+    yOWU0ODI5YjBkMDNiYmM3ODk2YjE1YjRhZGU1M2UxMzA4NThjYzM0ZDk2MjY
+    5YWE4OTA0MWY0MDkxMzZjNzI0MmEzODg5NWM5ZDViY2NhZDRmMzg5YWYxZDd
+    hNGJkMTM5OGJkMDcyZGZmYTg5NjIzMzM5N2EifSwicHJpbmNpcGFsIjp7ImV
+    tYWlsIjoicmZrZWxseUBtb3ppbGxhLmNvbSJ9LCJpYXQiOjEzOTUzNzE2NDQ
+    0OTQsImV4cCI6MTM5NTM3MTk1NDQ5NCwiaXNzIjoibG9naW4ubW96aWxsYS5
+    vcmcifQ.CJ_MPvzlQBXEYkMg9ouMLdkkpN633ZeYZqyf2-owmcfwp4s29vs8
+    8Z0fxmeKigNqrEOMD-VP0jV4CEmrAHkkMKPS1GZm9-iAgK4pJwkIwTOhMOLB
+    mv3jz7g1FF7D5ZWJxK1TwJTSJD0z2yCwYohCvPj_V-ieDlEPEnwyjThM2_rM
+    NpD9qj3t5JGVykf55f2JJ9joJgDLXy4zviC1Bq5jU24M2e9Gqdret4b47-oL
+    _QoepIBzjwgG608WnELtauxziGkWbwJLNKgUq14EHl1vLGCLl8qK_-PdSJk0
+    aDaiKMyKvqkY0ClBWhUTYuKI1yTIpkTfF8xoGh16FeoIly3zDw~eyJhbGciO
+    iJEUzEyOCJ9.eyJleHAiOjEzOTUzNzE3NzUzODksImF1ZCI6Imh0dHA6Ly9t
+    eWZhdm9yaXRlYmVlci5vcmcifQ.UmsN-LQbBy9osrdxV36n8Jqx10sftkljr
+    lFRHHg5t_yl6ll3KXUBxw
+""".replace(" ", "").replace("\n", "").strip()
+
+
 # These are values used to generate dummy DSA keys.
 # I took them directly from the javacript jwcrypto source code, which claims:
 #    """
@@ -101,7 +143,7 @@ def get_keypair(hostname):
 
 def make_assertion(email, audience, issuer=None, exp=None,
                     assertion_sig=None, certificate_sig=None,
-                    new_style=True, email_keypair=None, issuer_keypair=None):
+                    email_keypair=None, issuer_keypair=None):
     """Generate a new dummy assertion for the given email address.
 
     This method lets you generate BrowserID assertions using dummy private
@@ -146,7 +188,7 @@ def make_assertion(email, audience, issuer=None, exp=None,
         certificate = ".".join(certificate.split(".")[:-1] +
                                 [encode_bytes(certificate_sig)])
     # Combine them into a BrowserID bundled assertion.
-    return bundle_certs_and_assertion([certificate], assertion, new_style)
+    return bundle_certs_and_assertion([certificate], assertion)
 
 
 @contextmanager
