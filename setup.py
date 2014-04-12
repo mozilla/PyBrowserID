@@ -18,7 +18,7 @@ if sys.version_info < (2, 7):
     tests_require.append("unittest2")
 
 setup(name='PyBrowserID',
-      version='0.9.2',
+      version='0.10.0',
       description='Python library for the BrowserID Protocol',
       long_description=README + '\n\n' + CHANGES,
       license='MPLv2.0',
