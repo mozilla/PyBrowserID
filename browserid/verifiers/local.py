@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import re
 import time
 import warnings
 
@@ -12,6 +13,10 @@ from browserid.utils import unbundle_certs_and_assertion
 from browserid.errors import (InvalidSignatureError,
                               ExpiredSignatureError,
                               UnsupportedCertChainError)
+
+
+VALID_EMAIL = re.compile(r"^([\w!#$%&'*+/=?^`{|}~.\-]+)@" + \
+                         r"([\w.\-]+(:[0-9]{1,5})?)$")
 
 
 class LocalVerifier(Verifier):
@@ -73,11 +78,16 @@ class LocalVerifier(Verifier):
             # Parse out the list of certificates.
             certificates = [self.parse_jwt(c) for c in certificates]
 
+            # Extract the email, and the hostname of its provider.
+            email = certificates[-1].payload["principal"]["email"]
+            match = VALID_EMAIL.match(email)
+            if match is None:
+                raise ValueError("invalid email in assertion")
+            provider = match.group(2)
+
             # Check that the root issuer is trusted.
             # No point doing all that crypto if we're going to fail out anyway.
-            email = certificates[-1].payload["principal"]["email"]
             root_issuer = certificates[0].payload["iss"]
-            provider = email.split('@')[-1]
             if not self.is_trusted_issuer(provider, root_issuer):
                 msg = "untrusted root issuer: %s" % (root_issuer,)
                 raise InvalidSignatureError(msg)

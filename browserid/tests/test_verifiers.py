@@ -152,6 +152,31 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertTrue(self.verifier.verify(assertion))
 
     @callwith(patched_supportdoc_fetching())
+    def test_email_validation(self):
+        verifier = LocalVerifier(warning=False, audiences="http://persona.org")
+
+        # Null bytes in the email hostname.
+        assertion = make_assertion("test@users.example\x00.com",
+                                   "http://persona.org")
+        self.assertRaises(ValueError, verifier.verify, assertion)
+
+        # Newlines in the email hostanem.
+        assertion = make_assertion("test@users.example.com\n@example.com",
+                                   "http://persona.org")
+        self.assertRaises(ValueError, verifier.verify, assertion)
+
+        # Null bytes in the email username.
+        assertion = make_assertion(u"test\u0000@users.example.com",
+                                   "http://persona.org")
+        self.assertRaises(ValueError, verifier.verify, assertion)
+
+        # Null bytes with regex-busting newline.
+        assertion = make_assertion(u"test@example.com\u0000\n@evil.com",
+                                   "http://persona.org")
+        self.assertRaises(ValueError, verifier.verify, assertion)
+
+
+    @callwith(patched_supportdoc_fetching())
     def test_audience_verification(self):
 
         # create an assertion with the audience set to http://persona.org for
