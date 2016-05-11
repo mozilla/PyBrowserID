@@ -1,10 +1,17 @@
+0.11.0 - 2016-05-11
+===================
+
+  * Have the local verifier validate that the email
+    address is well-formed, to avoid passing e.g.
+    null bytes through to code that doesn't properly
+    handle them.
+
 0.10.0 - 2016-03-09
 ===================
 
   * Add support for "idpClaims" and "userClaims" when
     generating test assertions.  This helps when using
     this library to interact with Firefox Accounts.
-
 
 0.9.2 - 2014-04-13
 ==================
