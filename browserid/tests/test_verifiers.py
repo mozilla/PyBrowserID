@@ -126,6 +126,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         # There should be a warning about using this verifier.
         self.assertEquals(w[0].category, FutureWarning)
 
+    @callwith(patched_supportdoc_fetching())
     def test_error_handling_in_verify_certificate_chain(self):
         self.assertRaises(ValueError,
                           self.verifier.verify_certificate_chain, [])
@@ -236,6 +237,18 @@ class TestRemoteVerifier(unittest.TestCase, VerifierTestCases):
         requests.request.return_value = response
 
         return self.verifier.verify(assertion)
+
+    def test_expired_assertion(self):
+        try:
+            return super(TestRemoteVerifier, self).test_expired_assertion()
+        except ConnectionError:
+            raise unittest.SkipTest("error connecting to remote server")
+
+    def test_malformed_assertions(self):
+        try:
+            return super(TestRemoteVerifier, self).test_malformed_assertions()
+        except ConnectionError:
+            raise unittest.SkipTest("error connecting to remote server")
 
     def test_handling_of_valid_response_from_server(self):
         response_text = ('{"email": "t@m.com", "status": "okay", '
