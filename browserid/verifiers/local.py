@@ -3,6 +3,7 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import re
+import sys
 import time
 import warnings
 
@@ -15,8 +16,24 @@ from browserid.errors import (InvalidSignatureError,
                               UnsupportedCertChainError)
 
 
+if sys.version_info > (3,):
+    basestring = (str,)
+
 VALID_EMAIL = re.compile(r"^([\w!#$%&'*+/=?^`{|}~.\-]+)@" + \
                          r"([\w.\-]+(:[0-9]{1,5})?)$")
+
+RESERVED_CLAIM_NAMES = set((
+  "iss",
+  "sub",
+  "aud",
+  "exp",
+  "nbf",
+  "iat",
+  "jti",
+  "public-key",
+  "pubkey",
+  "principal"
+))
 
 
 class LocalVerifier(Verifier):
@@ -101,12 +118,19 @@ class LocalVerifier(Verifier):
         except KeyError:
             raise ValueError("Malformed JWT")
         # Looks good!
-        return {
+        res = {
           "status": "okay",
           "audience": assertion.payload["aud"],
           "email": email,
           "issuer": root_issuer,
         }
+        idpClaims = extract_extra_claims(certificates[-1])
+        if idpClaims:
+            res["idpClaims"] = idpClaims
+        userClaims = extract_extra_claims(assertion)
+        if userClaims:
+            res["userClaims"] = userClaims
+        return res
 
     def is_trusted_issuer(self, hostname, issuer):
         """Check whether the issuer is trusted for a given hostname."""
@@ -150,3 +174,17 @@ def _emit_warning():
            "the latest version of this module cannot verify a valid "\
            "BrowserID assertion, please contact the author."
     warnings.warn(msg, FutureWarning, stacklevel=3)
+
+
+def extract_extra_claims(jwt):
+    """Return a dict of any non-standard claims in the given JWT."""
+    claims = {}
+    for claim in jwt.payload:
+        if claim not in RESERVED_CLAIM_NAMES:
+            claims[claim] = jwt.payload[claim]
+    principal = jwt.payload.get("principal", None)
+    if principal is not None and not isinstance(principal, basestring):
+        for claim in principal:
+            if claim not in RESERVED_CLAIM_NAMES and claim != "email":
+                claims.setdefault(claim, principal[claim])
+    return claims

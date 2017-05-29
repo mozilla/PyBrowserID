@@ -153,6 +153,38 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         self.assertTrue(self.verifier.verify(assertion))
 
     @callwith(patched_supportdoc_fetching())
+    def test_extraction_of_extra_claims(self):
+        assertion = make_assertion("t@m.com", "http://e.com",
+            idp_claims={"extra": "claim"},
+            user_claims={"another": "claim"},
+        )
+        result = self.verifier.verify(assertion)
+        self.assertEqual(result["status"], "okay")
+        self.assertEqual(result["idpClaims"], {"extra": "claim"})
+        self.assertEqual(result["userClaims"], {"another": "claim"})
+
+    @callwith(patched_supportdoc_fetching())
+    def test_extraction_of_extra_claims_from_principal(self):
+        assertion = make_assertion("t@m.com", "http://e.com",
+            idp_claims={
+                "extra": "claim",
+                "principal": {
+                    "email": "t@m.com",
+                    "another": "claim",
+                    "public-key": "should-be-ignored",
+                }
+            },
+        )
+        result = self.verifier.verify(assertion)
+        self.assertEqual(result["status"], "okay")
+        self.assertEqual(result["idpClaims"], {
+            "extra": "claim",
+            "another": "claim",
+        })
+        self.assertTrue("userClaims" not in result)
+
+
+    @callwith(patched_supportdoc_fetching())
     def test_email_validation(self):
         verifier = LocalVerifier(warning=False, audiences="http://persona.org")
 
@@ -175,7 +207,6 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         assertion = make_assertion(u"test@example.com\u0000\n@evil.com",
                                    "http://persona.org")
         self.assertRaises(ValueError, verifier.verify, assertion)
-
 
     @callwith(patched_supportdoc_fetching())
     def test_audience_verification(self):
