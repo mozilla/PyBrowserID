@@ -1,3 +1,9 @@
+0.14.0 - 2018-01-12
+===================
+
+  * Silence warnings about assertion format changes,
+    since there's now no risk of this.
+
 0.13.0 - 2017-12-20
 ===================
 
