@@ -123,8 +123,8 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             self.verifier = LocalVerifier(["*"])
-        # There should be a warning about using this verifier.
-        self.assertEquals(w[0].category, FutureWarning)
+        # There should be no warning about using this verifier.
+        self.assertEquals(len(w), 0)
 
     @callwith(patched_supportdoc_fetching())
     def test_error_handling_in_verify_certificate_chain(self):
@@ -186,7 +186,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
 
     @callwith(patched_supportdoc_fetching())
     def test_email_validation(self):
-        verifier = LocalVerifier(warning=False, audiences="http://persona.org")
+        verifier = LocalVerifier(audiences="http://persona.org")
 
         # Null bytes in the email hostname.
         assertion = make_assertion("test@users.example\x00.com",
@@ -216,7 +216,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
         assertion = make_assertion("alexis@mozilla.com", "http://persona.org")
 
         # we don't set any audience explicitely here
-        verifier = LocalVerifier(warning=False)
+        verifier = LocalVerifier()
 
         # specifying the audience on verifier.verify uses it.
         self.assertRaises(AudienceMismatchError, verifier.verify, assertion,
@@ -228,7 +228,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
 
         # specifying the audience when creating the verifier AND when calling
         # verifier.verify.
-        verifier = LocalVerifier(["*.example.com"], warning=False)
+        verifier = LocalVerifier(["*.example.com"])
         self.assertRaises(AudienceMismatchError, verifier.verify, assertion,
                           audience="*.example.com")
 
@@ -245,7 +245,7 @@ class TestLocalVerifier(unittest.TestCase, VerifierTestCases):
 
         # the assertion is valid for http://persona.org; the verifier is
         # configured to accept this audience so it should validate
-        verifier = LocalVerifier(["persona.org"], warning=False)
+        verifier = LocalVerifier(["persona.org"])
         self.assertTrue(verifier.verify(assertion))
 
         # but if we ask explicitely for a different audience (the assertion is
@@ -313,7 +313,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
     def setUp(self):
         self.patched = patched_supportdoc_fetching()
         self.patched.__enter__()
-        self.verifier = LocalVerifier(["*"], warning=False)
+        self.verifier = LocalVerifier(["*"])
 
     def tearDown(self):
         self.patched.__exit__(None, None, None)
@@ -371,8 +371,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def test_cache_eviction_based_on_time(self):
         supportdocs = SupportDocumentManager(FIFOCache(cache_timeout=0.1))
-        verifier = LocalVerifier(["*"], supportdocs=supportdocs,
-                warning=False)
+        verifier = LocalVerifier(["*"], supportdocs=supportdocs)
         # Prime the cache by verifying an assertion.
         assertion = make_assertion("test@example.com", "")
         self.assertTrue(verifier.verify(assertion))
@@ -388,8 +387,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def test_cache_eviction_based_on_size(self):
         supportdocs = SupportDocumentManager(max_size=2)
-        verifier = LocalVerifier(["*"], supportdocs=supportdocs,
-                warning=False)
+        verifier = LocalVerifier(["*"], supportdocs=supportdocs)
         # Prime the cache by verifying some assertions.
         assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
@@ -410,8 +408,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
 
     def test_cache_eviction_during_write(self):
         supportdocs = SupportDocumentManager(cache_timeout=0.1)
-        verifier = LocalVerifier(["*"], supportdocs=supportdocs,
-                warning=False)
+        verifier = LocalVerifier(["*"], supportdocs=supportdocs)
         # Prime the cache by verifying an assertion.
         assertion1 = make_assertion("test@1.com", "", "1.com")
         self.assertTrue(verifier.verify(assertion1))
@@ -430,7 +427,7 @@ class TestDummyVerifier(unittest.TestCase, VerifierTestCases):
             self.assertRaises(RuntimeError, verifier.verify, assertion1)
 
     def test_audience_pattern_checking(self):
-        verifier = LocalVerifier(["*.moz.com", "www.test.com"], warning=False)
+        verifier = LocalVerifier(["*.moz.com", "www.test.com"])
         # Domains like *.moz.com should be valid audiences.
         # They will work with both the implicit patterns and explicit audience.
         assertion = make_assertion("test@example.com", "www.moz.com")
@@ -459,7 +456,7 @@ class TestWorkerPoolVerifier(TestDummyVerifier):
     def setUp(self):
         super(TestWorkerPoolVerifier, self).setUp()
         self.verifier = WorkerPoolVerifier(
-                verifier=LocalVerifier(["*"], warning=False)
+                verifier=LocalVerifier(["*"])
         )
 
     def tearDown(self):

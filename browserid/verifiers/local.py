@@ -5,7 +5,6 @@
 import re
 import sys
 import time
-import warnings
 
 from browserid import jwt
 from browserid.verifiers import Verifier
@@ -45,13 +44,16 @@ class LocalVerifier(Verifier):
     """
 
     def __init__(self, audiences=None, trusted_secondaries=None,
-                 supportdocs=None, warning=True):
+                 supportdocs=None, warning=False):
         super(LocalVerifier, self).__init__(audiences)
         self.trusted_secondaries = trusted_secondaries
         self.supportdocs = supportdocs or SupportDocumentManager()
 
         if warning:
-            _emit_warning()
+            # We used to emit a warning about the assertion format
+            # being subject to change.  That's no longer true, but
+            # we still accept the `warning` arg for compatibility.
+            pass
 
     def parse_jwt(self, data):
         return jwt.parse(data)
@@ -165,15 +167,6 @@ class LocalVerifier(Verifier):
                 raise InvalidSignatureError("bad signature in chain")
             current_key = cert.payload["public-key"]
         return cert
-
-
-def _emit_warning():
-    """Emit a scary warning so users will know this isn't final yet."""
-    msg = "The BrowserID certificate format has not been finalized and may "\
-           "change in backwards-incompatible ways.  If you find that "\
-           "the latest version of this module cannot verify a valid "\
-           "BrowserID assertion, please contact the author."
-    warnings.warn(msg, FutureWarning, stacklevel=3)
 
 
 def extract_extra_claims(jwt):
